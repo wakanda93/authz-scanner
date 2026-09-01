@@ -6,6 +6,10 @@ auth:
   login_path: /auth/login
   token_field: access_token
 
+profile:
+  path: /users/me
+  id_field: id
+
 identities:
   userA:
     email: userA@example.com
@@ -19,3 +23,17 @@ identities:
     email: admin1@example.com
     password: Password123!
     role: admin
+
+bola:
+  tests:
+    - name: regular_users_cannot_read_each_others_orders
+      role: user
+      owner_field: owner_id
+      resource:
+        list_method: GET
+        list_path: /orders
+        id_field: id
+      attack:
+        method: GET
+        path_template: /orders/{id}
+      expected_status: 403

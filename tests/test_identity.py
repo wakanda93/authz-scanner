@@ -3,7 +3,17 @@ import json
 import httpx
 import pytest
 
-from scanner.core.config import AuthConfig, IdentityConfig, ScannerConfig, TargetConfig
+from scanner.core.config import (
+    AuthConfig,
+    BolaAttackConfig,
+    BolaConfig,
+    BolaResourceConfig,
+    BolaTestConfig,
+    IdentityConfig,
+    ProfileConfig,
+    ScannerConfig,
+    TargetConfig,
+)
 from scanner.core.identity import IdentityLoginError, login_all_identities, login_identity
 
 
@@ -11,6 +21,7 @@ def build_config() -> ScannerConfig:
     return ScannerConfig(
         target=TargetConfig(name="test", base_url="http://testserver"),
         auth=AuthConfig(login_path="/session", token_field="token"),
+        profile=ProfileConfig(path="/me", id_field="subject_id"),
         identities={
             "owner": IdentityConfig(
                 email="owner@example.test",
@@ -23,6 +34,25 @@ def build_config() -> ScannerConfig:
                 role="admin",
             ),
         },
+        bola=BolaConfig(
+            tests=[
+                BolaTestConfig(
+                    name="same_role_users_cannot_read_each_others_resources",
+                    role="user",
+                    owner_field="owner_id",
+                    resource=BolaResourceConfig(
+                        list_method="GET",
+                        list_path="/resources",
+                        id_field="id",
+                    ),
+                    attack=BolaAttackConfig(
+                        method="GET",
+                        path_template="/resources/{id}",
+                    ),
+                    expected_status=403,
+                )
+            ]
+        ),
     )
 
 
