@@ -24,6 +24,10 @@ class UserPublic(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UserUpdate(BaseModel):
+    email: str | None = None
+
+
 class OrderItemCreate(BaseModel):
     product_name: str
     quantity: int

@@ -28,6 +28,11 @@ class UserWithPasswordHash(UserPublic):
     password_hash: str
 
 
+class UserUpdate(BaseModel):
+    email: str | None = None
+    role: UserRole | None = None
+
+
 class OrderItemPublic(BaseModel):
     id: str
     order_id: str
