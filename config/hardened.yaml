@@ -1,3 +1,21 @@
 target:
   name: hardened
   base_url: http://127.0.0.1:8002
+
+auth:
+  login_path: /auth/login
+  token_field: access_token
+
+identities:
+  userA:
+    email: userA@example.com
+    password: Password123!
+    role: user
+  userB:
+    email: userB@example.com
+    password: Password123!
+    role: user
+  admin1:
+    email: admin1@example.com
+    password: Password123!
+    role: admin

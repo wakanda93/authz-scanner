@@ -103,3 +103,7 @@ API tarafinda su zafiyet siniflari icin vulnerable ve hardened davranis farklari
 - Privilege Escalation
 
 Scanner kodu config-driven olacak sekilde gelistirilecektir. `apps/` altindaki API'ler test laboratuvari, `scanner/` altindaki kod ise baska REST API'lere uyarlanabilir motor olarak tasarlanir.
+
+## Gelecek Gelistirmeler
+
+- OpenAPI tabanli config discovery: Scanner ileride hedef API'nin `/openapi.json` dokumanini okuyarak taslak config uretebilir. Bu ozellik manuel config yaklasiminin yerine gecmekten cok, yeni API'ler icin baslangic config'i hazirlayan yardimci bir katman olarak planlanir. Authorization kurallari is kuralina bagli oldugu icin uretilen config insan tarafindan kontrol edilmelidir.
