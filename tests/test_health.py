@@ -22,3 +22,23 @@ def test_hardened_api_health() -> None:
         "status": "ok",
         "service": "hardened_api",
     }
+
+
+def test_vulnerable_api_openapi_schema_is_available() -> None:
+    response = TestClient(vulnerable_app).get("/openapi.json")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["info"]["title"] == "Vulnerable AuthZ API"
+    assert "/auth/login" in body["paths"]
+    assert "/orders/{order_id}" in body["paths"]
+
+
+def test_hardened_api_openapi_schema_is_available() -> None:
+    response = TestClient(hardened_app).get("/openapi.json")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["info"]["title"] == "Hardened AuthZ API"
+    assert "/auth/login" in body["paths"]
+    assert "/orders/{order_id}" in body["paths"]
