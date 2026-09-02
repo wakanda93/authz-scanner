@@ -13,6 +13,7 @@ from scanner.core.identity import AuthenticatedIdentity, login_all_identities
 from scanner.modules.bfla import run_bfla_tests
 from scanner.modules.bola import run_bola_tests
 from scanner.modules.property_auth import run_property_auth_tests
+from scanner.reporting.json_report import write_json_report
 
 
 class SmokeScanResult(BaseModel):
@@ -161,6 +162,18 @@ def parse_args() -> argparse.Namespace:
         required=True,
         help="Path to scanner YAML config.",
     )
+    parser.add_argument(
+        "--report-format",
+        choices=["none", "json"],
+        default="none",
+        help="Optional report output format.",
+    )
+    parser.add_argument(
+        "--report-dir",
+        type=Path,
+        default=Path("reports"),
+        help="Directory for generated report files.",
+    )
     return parser.parse_args()
 
 
@@ -169,6 +182,9 @@ def main() -> None:
     config = load_config(args.config)
     result = run_scan(config)
     print_scan_result(result)
+    if args.report_format == "json":
+        report_path = write_json_report(result, args.report_dir)
+        Console().print(f"JSON report written: {report_path}")
 
 
 if __name__ == "__main__":

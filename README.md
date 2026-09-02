@@ -99,6 +99,14 @@ python -m scanner.main --config config/vulnerable.yaml
 python -m scanner.main --config config/hardened.yaml
 ```
 
+JSON rapor uretme:
+
+```bash
+python -m scanner.main --config config/vulnerable.yaml --report-format json
+```
+
+Rapor dosyalari varsayilan olarak `reports/` klasorune yazilir.
+
 ## Mevcut Kapsam
 
 API tarafinda su zafiyet siniflari icin vulnerable ve hardened davranis farklari hazirdir:
