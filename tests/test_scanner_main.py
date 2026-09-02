@@ -11,7 +11,7 @@ from scanner.core.config import (
     ScannerConfig,
     TargetConfig,
 )
-from scanner.main import run_smoke_scan
+from scanner.main import run_scan
 
 
 def build_config() -> ScannerConfig:
@@ -23,6 +23,11 @@ def build_config() -> ScannerConfig:
             "owner": IdentityConfig(
                 email="owner@example.test",
                 password="owner-secret",
+                role="user",
+            ),
+            "attacker": IdentityConfig(
+                email="attacker@example.test",
+                password="attacker-secret",
                 role="user",
             ),
             "privileged": IdentityConfig(
@@ -53,7 +58,7 @@ def build_config() -> ScannerConfig:
     )
 
 
-def test_run_smoke_scan_logs_in_identities_and_checks_health_and_openapi(monkeypatch) -> None:
+def test_run_scan_logs_in_identities_checks_api_and_runs_bola(monkeypatch) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/session":
             return httpx.Response(200, json={"token": f"token-for-{request.url.host}"})
@@ -61,6 +66,17 @@ def test_run_smoke_scan_logs_in_identities_and_checks_health_and_openapi(monkeyp
             return httpx.Response(200, json={"status": "ok"})
         if request.url.path == "/openapi.json":
             return httpx.Response(200, json={"info": {"title": "External API"}, "paths": {}})
+        if request.url.path == "/me":
+            return httpx.Response(200, json={"subject_id": "subject-owner"})
+        if request.url.path == "/resources":
+            return httpx.Response(
+                200,
+                json=[
+                    {"id": "resource-owned-by-owner", "owner_id": "subject-owner"},
+                ],
+            )
+        if request.url.path == "/resources/resource-owned-by-owner":
+            return httpx.Response(403, json={"detail": "Forbidden"})
         return httpx.Response(404, json={})
 
     class MockClient(httpx.Client):
@@ -73,13 +89,15 @@ def test_run_smoke_scan_logs_in_identities_and_checks_health_and_openapi(monkeyp
 
     monkeypatch.setattr(httpx, "Client", MockClient)
 
-    result = run_smoke_scan(build_config())
+    result = run_scan(build_config())
 
     assert result.target_name == "external-api"
     assert result.base_url == "http://testserver"
-    assert set(result.identities) == {"owner", "privileged"}
+    assert set(result.identities) == {"owner", "attacker", "privileged"}
     assert result.health_status_code == 200
     assert result.health_ok is True
     assert result.openapi_status_code == 200
     assert result.openapi_ok is True
     assert result.openapi_title == "External API"
+    assert result.findings == []
+    assert result.finding_count == 0
