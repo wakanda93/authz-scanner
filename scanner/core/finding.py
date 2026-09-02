@@ -10,6 +10,7 @@ class VulnerabilityClass(str, enum.Enum):
     BFLA = "BFLA"
     MASS_ASSIGNMENT = "Mass Assignment"
     EXCESSIVE_DATA_EXPOSURE = "Excessive Data Exposure"
+    PRIVILEGE_ESCALATION = "Privilege Escalation"
 
 
 class Severity(str, enum.Enum):

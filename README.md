@@ -92,6 +92,13 @@ Testleri calistirma:
 pytest
 ```
 
+Scanner'i calistirma:
+
+```bash
+python -m scanner.main --config config/vulnerable.yaml
+python -m scanner.main --config config/hardened.yaml
+```
+
 ## Mevcut Kapsam
 
 API tarafinda su zafiyet siniflari icin vulnerable ve hardened davranis farklari hazirdir:
@@ -102,7 +109,15 @@ API tarafinda su zafiyet siniflari icin vulnerable ve hardened davranis farklari
 - Excessive Data Exposure
 - Privilege Escalation
 
-Scanner kodu config-driven olacak sekilde gelistirilecektir. `apps/` altindaki API'ler test laboratuvari, `scanner/` altindaki kod ise baska REST API'lere uyarlanabilir motor olarak tasarlanir.
+Scanner su anda config-driven sekilde BOLA, BFLA ve property authorization kontrollerini calistirir.
+
+Property authorization kapsami uc davranisi kontrol eder:
+
+- Excessive Data Exposure: Response icinde `password_hash`, token, API key, kart bilgisi, MFA secret gibi hassas alan adlarini recursive olarak arar.
+- Mass Assignment: Create/update payload'larina server tarafinda kontrol edilmesi gereken alanlar ekleyip API'nin bunlari kabul edip etmedigini kontrol eder.
+- Privilege Escalation: Dusuk yetkili bir kullanicinin `role` gibi yetki alanlarini degistirip degistiremedigini dogrulama istegiyle kontrol eder.
+
+`apps/` altindaki API'ler test laboratuvari, `scanner/` altindaki kod ise baska REST API'lere uyarlanabilir motor olarak tasarlanir. Yeni bir API icin temel beklenti, `config/*.yaml` icinde login, profil, identity ve test kurallarinin o API'ye gore tanimlanmasidir.
 
 ## Gelecek Gelistirmeler
 

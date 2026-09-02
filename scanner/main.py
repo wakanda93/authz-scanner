@@ -12,6 +12,7 @@ from scanner.core.finding import Finding
 from scanner.core.identity import AuthenticatedIdentity, login_all_identities
 from scanner.modules.bfla import run_bfla_tests
 from scanner.modules.bola import run_bola_tests
+from scanner.modules.property_auth import run_property_auth_tests
 
 
 class SmokeScanResult(BaseModel):
@@ -52,6 +53,13 @@ def run_scan(config: ScannerConfig) -> ScannerRunResult:
         )
         findings.extend(
             run_bfla_tests(
+                executor=executor,
+                config=config,
+                identities=identities,
+            )
+        )
+        findings.extend(
+            run_property_auth_tests(
                 executor=executor,
                 config=config,
                 identities=identities,
@@ -98,7 +106,7 @@ def print_scan_result(result: ScannerRunResult) -> None:
         "ok" if result.openapi_ok else "failed",
         result.openapi_title or str(result.openapi_status_code),
     )
-    table.add_row("Findings", str(result.finding_count), "BOLA and BFLA checks completed")
+    table.add_row("Findings", str(result.finding_count), "BOLA, BFLA, and property checks completed")
     console.print(table)
 
     if result.findings:

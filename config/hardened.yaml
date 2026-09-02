@@ -116,3 +116,82 @@ bfla:
         method: GET
         path_template: /admin/users
       expected_status: 403
+
+property_auth:
+  tests:
+    - name: users_me_must_not_expose_sensitive_fields
+      type: excessive_data_exposure
+      role: user
+      request:
+        method: GET
+        path_template: /users/me
+      forbidden_fields:
+        - password
+        - password_hash
+        - hashed_password
+        - secret
+        - token
+        - access_token
+        - refresh_token
+        - api_key
+        - private_key
+        - ssn
+        - national_id
+        - credit_card
+        - card_number
+        - cvv
+        - otp_secret
+        - mfa_secret
+        - reset_token
+    - name: order_create_must_not_accept_server_controlled_fields
+      type: mass_assignment
+      role: user
+      request:
+        method: POST
+        path_template: /orders
+      payloads:
+        - name: approved_status_and_low_total
+          json_body:
+            status: approved
+            total_amount: "0.01"
+            items:
+              - product_name: Laptop Stand
+                quantity: 2
+                unit_price: "45.00"
+          forbidden_effects:
+            status: approved
+            total_amount: "0.01"
+        - name: refunded_status
+          json_body:
+            status: refunded
+            total_amount: "0.01"
+            items:
+              - product_name: Desk Lamp
+                quantity: 1
+                unit_price: "30.00"
+          forbidden_effects:
+            status: refunded
+        - name: manipulated_total_only
+          json_body:
+            total_amount: "0.01"
+            items:
+              - product_name: Monitor Arm
+                quantity: 2
+                unit_price: "60.00"
+          forbidden_effects:
+            total_amount: "0.01"
+    - name: users_cannot_promote_themselves_by_role_assignment
+      type: privilege_escalation
+      role: user
+      request:
+        method: PUT
+        path_template: /users/{subject_id}
+      payloads:
+        - name: promote_to_admin
+          json_body:
+            role: admin
+          verification:
+            method: GET
+            path_template: /users/me
+          forbidden_effects:
+            role: admin

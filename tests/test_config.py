@@ -66,6 +66,30 @@ bfla:
         method: GET
         path_template: /admin/users
       expected_status: 403
+
+property_auth:
+  tests:
+    - name: profile_must_not_expose_sensitive_fields
+      type: excessive_data_exposure
+      role: user
+      request:
+        method: GET
+        path_template: /me
+      forbidden_fields:
+        - password_hash
+        - api_key
+    - name: create_resource_must_not_accept_server_controlled_fields
+      type: mass_assignment
+      role: user
+      request:
+        method: POST
+        path_template: /resources
+      payloads:
+        - name: force_admin_only_state
+          json_body:
+            state: approved
+          forbidden_effects:
+            state: approved
 """,
     )
 
@@ -107,6 +131,15 @@ bfla:
     direct_bfla_test = config.bfla.tests[1]
     assert direct_bfla_test.resource is None
     assert direct_bfla_test.attack.path_template == "/admin/users"
+    assert len(config.property_auth.tests) == 2
+    exposure_test = config.property_auth.tests[0]
+    assert exposure_test.type == "excessive_data_exposure"
+    assert exposure_test.request.path_template == "/me"
+    assert exposure_test.forbidden_fields == ["password_hash", "api_key"]
+    mass_assignment_test = config.property_auth.tests[1]
+    assert mass_assignment_test.type == "mass_assignment"
+    assert mass_assignment_test.payloads[0].name == "force_admin_only_state"
+    assert mass_assignment_test.payloads[0].forbidden_effects == {"state": "approved"}
 
 
 def test_loads_empty_yaml_as_invalid_config(tmp_path) -> None:

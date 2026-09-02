@@ -1,7 +1,7 @@
 from pathlib import Path
+from typing import Any
 
 import yaml
-from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -78,6 +78,32 @@ class BflaConfig(BaseModel):
     tests: list[BflaTestConfig]
 
 
+class PropertyRequestConfig(BaseModel):
+    method: str
+    path_template: str
+    json_body: dict[str, Any] | None = None
+
+
+class PropertyPayloadConfig(BaseModel):
+    name: str
+    json_body: dict[str, Any]
+    forbidden_effects: dict[str, Any] = Field(default_factory=dict)
+    verification: PropertyRequestConfig | None = None
+
+
+class PropertyAuthTestConfig(BaseModel):
+    name: str
+    type: str
+    role: str
+    request: PropertyRequestConfig
+    forbidden_fields: list[str] = Field(default_factory=list)
+    payloads: list[PropertyPayloadConfig] = Field(default_factory=list)
+
+
+class PropertyAuthConfig(BaseModel):
+    tests: list[PropertyAuthTestConfig]
+
+
 class ScannerConfig(BaseModel):
     target: TargetConfig
     auth: AuthConfig
@@ -85,6 +111,7 @@ class ScannerConfig(BaseModel):
     identities: dict[str, IdentityConfig]
     bola: BolaConfig
     bfla: BflaConfig
+    property_auth: PropertyAuthConfig
 
 
 def load_config(path: str | Path) -> ScannerConfig:

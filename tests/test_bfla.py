@@ -9,6 +9,7 @@ from scanner.core.config import (
     BolaConfig,
     IdentityConfig,
     ProfileConfig,
+    PropertyAuthConfig,
     ScannerConfig,
     TargetConfig,
 )
@@ -50,6 +51,7 @@ def build_config(resource_backed: bool = True) -> ScannerConfig:
             ),
         },
         bola=BolaConfig(tests=[]),
+        property_auth=PropertyAuthConfig(tests=[]),
         bfla=BflaConfig(
             tests=[
                 BflaTestConfig(

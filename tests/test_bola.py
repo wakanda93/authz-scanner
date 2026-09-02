@@ -11,6 +11,7 @@ from scanner.core.config import (
     BolaTestConfig,
     IdentityConfig,
     ProfileConfig,
+    PropertyAuthConfig,
     ScannerConfig,
     TargetConfig,
 )
@@ -63,6 +64,7 @@ def build_config(expected_status: int = 403) -> ScannerConfig:
             ]
         ),
         bfla=BflaConfig(tests=[]),
+        property_auth=PropertyAuthConfig(tests=[]),
     )
 
 
