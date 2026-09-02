@@ -66,6 +66,38 @@ def select_owned_resource(
     )
 
 
+def resolve_resource_path(resource: dict[str, Any], dotted_path: str) -> Any:
+    current_value: Any = resource
+    for segment in dotted_path.split("."):
+        if isinstance(current_value, dict):
+            current_value = current_value.get(segment)
+            continue
+        if isinstance(current_value, list) and segment.isdigit():
+            index = int(segment)
+            if index >= len(current_value):
+                return None
+            current_value = current_value[index]
+            continue
+        return None
+
+    return current_value
+
+
+def build_attack_path(test_config: BolaTestConfig, owned_resource: dict[str, Any]) -> str:
+    resource_id = owned_resource[test_config.resource.id_field]
+    path_values: dict[str, Any] = {"id": resource_id}
+
+    for placeholder, dotted_path in test_config.attack.path_params.items():
+        value = resolve_resource_path(owned_resource, dotted_path)
+        if not isinstance(value, str) or not value:
+            raise BolaScanError(
+                f"Could not resolve path parameter '{placeholder}' from resource path '{dotted_path}'"
+            )
+        path_values[placeholder] = value
+
+    return test_config.attack.path_template.format(**path_values)
+
+
 def run_bola_test(
     executor: HttpExecutor,
     config: ScannerConfig,
@@ -89,12 +121,13 @@ def run_bola_test(
         test_config=test_config,
     )
     resource_id = owned_resource[test_config.resource.id_field]
-    attack_path = test_config.attack.path_template.format(id=resource_id)
+    attack_path = build_attack_path(test_config, owned_resource)
 
     attack_result = executor.request(
         identity=attacker,
         method=test_config.attack.method,
         path=attack_path,
+        json=test_config.attack.json_body,
     )
 
     if attack_result.status_code == test_config.expected_status:

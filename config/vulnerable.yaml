@@ -37,3 +37,51 @@ bola:
         method: GET
         path_template: /orders/{id}
       expected_status: 403
+    - name: regular_users_cannot_update_each_others_orders
+      role: user
+      owner_field: owner_id
+      resource:
+        list_method: GET
+        list_path: /orders
+        id_field: id
+      attack:
+        method: PUT
+        path_template: /orders/{id}
+        json_body:
+          total_amount: "1.00"
+      expected_status: 403
+    - name: regular_users_cannot_cancel_each_others_orders
+      role: user
+      owner_field: owner_id
+      resource:
+        list_method: GET
+        list_path: /orders
+        id_field: id
+      attack:
+        method: DELETE
+        path_template: /orders/{id}
+      expected_status: 403
+    - name: regular_users_cannot_list_each_others_order_items
+      role: user
+      owner_field: owner_id
+      resource:
+        list_method: GET
+        list_path: /orders
+        id_field: id
+      attack:
+        method: GET
+        path_template: /orders/{id}/items
+      expected_status: 403
+    - name: regular_users_cannot_read_each_others_order_item_detail
+      role: user
+      owner_field: owner_id
+      resource:
+        list_method: GET
+        list_path: /orders
+        id_field: id
+      attack:
+        method: GET
+        path_template: /orders/{id}/items/{item_id}
+        path_params:
+          item_id: items.0.id
+      expected_status: 403

@@ -43,6 +43,8 @@ bola:
       attack:
         method: GET
         path_template: /resources/{id}
+        path_params:
+          child_id: children.0.id
       expected_status: 403
 """,
     )
@@ -70,6 +72,7 @@ bola:
     assert bola_test.resource.id_field == "id"
     assert bola_test.attack.method == "GET"
     assert bola_test.attack.path_template == "/resources/{id}"
+    assert bola_test.attack.path_params == {"child_id": "children.0.id"}
     assert bola_test.expected_status == 403
 
 

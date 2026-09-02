@@ -1,3 +1,5 @@
+import json
+
 import httpx
 
 from scanner.core.config import (
@@ -15,6 +17,8 @@ from scanner.core.executor import HttpExecutor
 from scanner.core.identity import AuthenticatedIdentity
 from scanner.modules.bola import (
     BolaScanError,
+    build_attack_path,
+    resolve_resource_path,
     run_bola_tests,
     select_owned_resource,
     select_role_pair,
@@ -112,6 +116,45 @@ def test_select_owned_resource_returns_resource_matching_subject_id() -> None:
     assert resource["id"] == "resource-2"
 
 
+def test_resolve_resource_path_reads_nested_list_values() -> None:
+    value = resolve_resource_path(
+        {
+            "id": "resource-1",
+            "children": [
+                {"id": "child-1"},
+            ],
+        },
+        "children.0.id",
+    )
+
+    assert value == "child-1"
+
+
+def test_build_attack_path_supports_additional_path_params() -> None:
+    config = build_config()
+    test_config = config.bola.tests[0].model_copy(
+        update={
+            "attack": BolaAttackConfig(
+                method="GET",
+                path_template="/resources/{id}/children/{child_id}",
+                path_params={"child_id": "children.0.id"},
+            )
+        }
+    )
+
+    path = build_attack_path(
+        test_config,
+        {
+            "id": "resource-1",
+            "children": [
+                {"id": "child-1"},
+            ],
+        },
+    )
+
+    assert path == "/resources/resource-1/children/child-1"
+
+
 def test_run_bola_tests_returns_finding_when_cross_user_access_succeeds() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.headers["authorization"] == "Bearer owner-token" and request.url.path == "/me":
@@ -147,6 +190,44 @@ def test_run_bola_tests_returns_finding_when_cross_user_access_succeeds() -> Non
     assert findings[0].identity_name == "attacker"
     assert findings[0].evidence[0].observed.status_code == 200
     assert findings[0].evidence[0].expected_status_code == 403
+
+
+def test_run_bola_tests_sends_configured_attack_json_body() -> None:
+    config = build_config()
+    config.bola.tests[0].attack.method = "PUT"
+    config.bola.tests[0].attack.json_body = {"name": "changed"}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.headers["authorization"] == "Bearer owner-token" and request.url.path == "/me":
+            return httpx.Response(200, json={"subject_id": "subject-owner"})
+        if request.headers["authorization"] == "Bearer owner-token" and request.url.path == "/resources":
+            return httpx.Response(
+                200,
+                json=[
+                    {"id": "resource-owned-by-owner", "owner_id": "subject-owner"},
+                ],
+            )
+        if (
+            request.headers["authorization"] == "Bearer attacker-token"
+            and request.url.path == "/resources/resource-owned-by-owner"
+        ):
+            assert request.method == "PUT"
+            assert json.loads(request.content.decode()) == {"name": "changed"}
+            return httpx.Response(200, json={"id": "resource-owned-by-owner"})
+        return httpx.Response(404, json={})
+
+    executor = HttpExecutor(
+        httpx.Client(transport=httpx.MockTransport(handler), base_url="http://testserver")
+    )
+
+    findings = run_bola_tests(
+        executor=executor,
+        config=config,
+        identities=build_identities(),
+    )
+
+    assert len(findings) == 1
+    assert findings[0].method == "PUT"
 
 
 def test_run_bola_tests_returns_no_finding_when_cross_user_access_is_blocked() -> None:

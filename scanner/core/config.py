@@ -1,7 +1,9 @@
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class TargetConfig(BaseModel):
@@ -34,6 +36,8 @@ class BolaResourceConfig(BaseModel):
 class BolaAttackConfig(BaseModel):
     method: str
     path_template: str
+    path_params: dict[str, str] = Field(default_factory=dict)
+    json_body: dict[str, Any] | None = None
 
 
 class BolaTestConfig(BaseModel):
