@@ -1,0 +1,100 @@
+from datetime import UTC, datetime
+
+from scanner.core.evidence import HttpEvidence
+from scanner.core.finding import Finding, Severity, VulnerabilityClass
+from scanner.core.identity import AuthenticatedIdentity
+from scanner.core.result import HttpRequestResult
+from scanner.main import ScannerRunResult
+from scanner.reporting.markdown_report import (
+    build_markdown_report,
+    escape_table_cell,
+    write_markdown_report,
+)
+
+
+def build_result(findings: list[Finding] | None = None) -> ScannerRunResult:
+    return ScannerRunResult(
+        target_name="External API",
+        base_url="http://testserver",
+        identities={
+            "regular": AuthenticatedIdentity(
+                name="regular",
+                email="regular@example.test",
+                role="user",
+                access_token="secret-token",
+            )
+        },
+        health_status_code=200,
+        openapi_status_code=200,
+        openapi_title="External API",
+        findings=findings or [],
+    )
+
+
+def build_finding() -> Finding:
+    return Finding(
+        title="BOLA: same_role_users_cannot_read_each_others_resources",
+        vulnerability_class=VulnerabilityClass.BOLA,
+        severity=Severity.HIGH,
+        endpoint="/resources/{id}",
+        method="GET",
+        identity_name="regular",
+        description="A regular user accessed another user's resource.",
+        recommendation="Check resource ownership before returning the resource.",
+        evidence=[
+            HttpEvidence(
+                observed=HttpRequestResult(
+                    identity_name="regular",
+                    method="GET",
+                    path="/resources/1",
+                    status_code=200,
+                    response_json={"id": "1", "owner_id": "other-subject"},
+                ),
+                expected_status_code=403,
+                description="Cross-user resource read succeeded.",
+            )
+        ],
+    )
+
+
+def test_escape_table_cell_keeps_markdown_tables_valid() -> None:
+    assert escape_table_cell("a|b\nc") == "a\\|b c"
+
+
+def test_build_markdown_report_includes_summary_findings_and_evidence() -> None:
+    report = build_markdown_report(
+        build_result([build_finding()]),
+        generated_at=datetime(2026, 9, 2, 12, 0, tzinfo=UTC),
+    )
+
+    assert "# AuthZ Scanner Report" in report
+    assert "- Target: `External API`" in report
+    assert "- Total Findings: `1`" in report
+    assert "| 1 | high | BOLA | GET | `/resources/{id}` | regular |" in report
+    assert "### 1. BOLA: same_role_users_cannot_read_each_others_resources" in report
+    assert "- Expected Status: `403`" in report
+    assert "- Observed Status: `200`" in report
+    assert '"owner_id": "other-subject"' in report
+    assert "Check resource ownership before returning the resource." in report
+    assert "secret-token" not in report
+
+
+def test_build_markdown_report_handles_zero_findings() -> None:
+    report = build_markdown_report(
+        build_result(),
+        generated_at=datetime(2026, 9, 2, 12, 0, tzinfo=UTC),
+    )
+
+    assert "- Total Findings: `0`" in report
+    assert "No findings were identified." in report
+
+
+def test_write_markdown_report_creates_report_file(tmp_path) -> None:
+    report_path = write_markdown_report(
+        build_result([build_finding()]),
+        output_dir=tmp_path,
+        generated_at=datetime(2026, 9, 2, 12, 0, tzinfo=UTC),
+    )
+
+    assert report_path.name == "authz-scan-external-api-20260902T120000Z.md"
+    assert report_path.read_text().startswith("# AuthZ Scanner Report")

@@ -1,1 +1,154 @@
+import json
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
+from scanner.reporting.json_report import sanitize_filename_part
+
+
+def escape_table_cell(value: object) -> str:
+    return str(value).replace("|", "\\|").replace("\n", " ")
+
+
+def format_check(ok: bool) -> str:
+    return "OK" if ok else "FAILED"
+
+
+def format_json_block(value: Any) -> str:
+    if value is None:
+        return "`null`"
+    return "```json\n" + json.dumps(value, indent=2) + "\n```"
+
+
+def build_markdown_report(result: Any, generated_at: datetime | None = None) -> str:
+    timestamp = generated_at or datetime.now(UTC)
+    lines: list[str] = [
+        "# AuthZ Scanner Report",
+        "",
+        "## Executive Summary",
+        "",
+        f"- Target: `{result.target_name}`",
+        f"- Base URL: `{result.base_url}`",
+        f"- Generated At: `{timestamp.isoformat()}`",
+        f"- Total Findings: `{result.finding_count}`",
+        "",
+        "## Scan Metadata",
+        "",
+        "| Check | Result | Detail |",
+        "|---|---|---|",
+        f"| Health | {format_check(result.health_ok)} | `{result.health_status_code}` |",
+        (
+            f"| OpenAPI | {format_check(result.openapi_ok)} | "
+            f"`{escape_table_cell(result.openapi_title or result.openapi_status_code)}` |"
+        ),
+        "",
+        "## Tested Identities",
+        "",
+        "| Name | Email | Role |",
+        "|---|---|---|",
+    ]
+
+    for identity in result.identities.values():
+        lines.append(
+            "| "
+            f"{escape_table_cell(identity.name)} | "
+            f"{escape_table_cell(identity.email)} | "
+            f"{escape_table_cell(identity.role)} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Findings Summary",
+            "",
+        ]
+    )
+
+    if not result.findings:
+        lines.extend(["No findings were identified.", ""])
+        return "\n".join(lines).rstrip() + "\n"
+
+    lines.extend(
+        [
+            "| # | Severity | Class | Method | Endpoint | Identity |",
+            "|---|---|---|---|---|---|",
+        ]
+    )
+    for index, finding in enumerate(result.findings, start=1):
+        lines.append(
+            "| "
+            f"{index} | "
+            f"{escape_table_cell(finding.severity.value)} | "
+            f"{escape_table_cell(finding.vulnerability_class.value)} | "
+            f"{escape_table_cell(finding.method)} | "
+            f"`{escape_table_cell(finding.endpoint)}` | "
+            f"{escape_table_cell(finding.identity_name)} |"
+        )
+
+    lines.extend(["", "## Detailed Findings", ""])
+
+    for index, finding in enumerate(result.findings, start=1):
+        lines.extend(
+            [
+                f"### {index}. {finding.title}",
+                "",
+                f"- Severity: `{finding.severity.value}`",
+                f"- Class: `{finding.vulnerability_class.value}`",
+                f"- Endpoint: `{finding.method} {finding.endpoint}`",
+                f"- Identity: `{finding.identity_name}`",
+                "",
+                finding.description,
+                "",
+                "#### Evidence",
+                "",
+            ]
+        )
+
+        for evidence_index, evidence in enumerate(finding.evidence, start=1):
+            observed = evidence.observed
+            lines.extend(
+                [
+                    f"Evidence {evidence_index}: {evidence.description}",
+                    "",
+                    f"- Expected Status: `{evidence.expected_status_code}`",
+                    f"- Observed Status: `{observed.status_code}`",
+                    f"- Observed Request: `{observed.method} {observed.path}`",
+                    "",
+                    "Request Body:",
+                    "",
+                    format_json_block(observed.request_json),
+                    "",
+                    "Response Body:",
+                    "",
+                    format_json_block(observed.response_json or observed.response_text),
+                    "",
+                ]
+            )
+
+        lines.extend(
+            [
+                "#### Recommendation",
+                "",
+                finding.recommendation,
+                "",
+            ]
+        )
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_markdown_report(
+    result: Any,
+    output_dir: str | Path = "reports",
+    generated_at: datetime | None = None,
+) -> Path:
+    timestamp = generated_at or datetime.now(UTC)
+    report = build_markdown_report(result, generated_at=timestamp)
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    filename_target = sanitize_filename_part(result.target_name)
+    filename_timestamp = timestamp.strftime("%Y%m%dT%H%M%SZ")
+    report_path = output_path / f"authz-scan-{filename_target}-{filename_timestamp}.md"
+    report_path.write_text(report)
+    return report_path
