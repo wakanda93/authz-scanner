@@ -46,6 +46,26 @@ bola:
         path_params:
           child_id: children.0.id
       expected_status: 403
+
+bfla:
+  tests:
+    - name: low_privilege_users_cannot_run_privileged_action
+      role: user
+      resource:
+        list_method: GET
+        list_path: /resources
+        id_field: id
+        owner_field: owner_id
+      attack:
+        method: POST
+        path_template: /resources/{id}/privileged-action
+      expected_status: 403
+    - name: low_privilege_users_cannot_open_admin_panel
+      role: user
+      attack:
+        method: GET
+        path_template: /admin/users
+      expected_status: 403
 """,
     )
 
@@ -74,6 +94,19 @@ bola:
     assert bola_test.attack.path_template == "/resources/{id}"
     assert bola_test.attack.path_params == {"child_id": "children.0.id"}
     assert bola_test.expected_status == 403
+    assert len(config.bfla.tests) == 2
+    resource_bfla_test = config.bfla.tests[0]
+    assert resource_bfla_test.name == "low_privilege_users_cannot_run_privileged_action"
+    assert resource_bfla_test.role == "user"
+    assert resource_bfla_test.resource is not None
+    assert resource_bfla_test.resource.list_path == "/resources"
+    assert resource_bfla_test.resource.owner_field == "owner_id"
+    assert resource_bfla_test.attack.method == "POST"
+    assert resource_bfla_test.attack.path_template == "/resources/{id}/privileged-action"
+    assert resource_bfla_test.expected_status == 403
+    direct_bfla_test = config.bfla.tests[1]
+    assert direct_bfla_test.resource is None
+    assert direct_bfla_test.attack.path_template == "/admin/users"
 
 
 def test_loads_empty_yaml_as_invalid_config(tmp_path) -> None:

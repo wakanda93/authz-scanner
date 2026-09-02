@@ -5,6 +5,7 @@ import pytest
 
 from scanner.core.config import (
     AuthConfig,
+    BflaConfig,
     BolaAttackConfig,
     BolaConfig,
     BolaResourceConfig,
@@ -53,6 +54,7 @@ def build_config() -> ScannerConfig:
                 )
             ]
         ),
+        bfla=BflaConfig(tests=[]),
     )
 
 

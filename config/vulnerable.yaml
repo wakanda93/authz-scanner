@@ -85,3 +85,34 @@ bola:
         path_params:
           item_id: items.0.id
       expected_status: 403
+
+bfla:
+  tests:
+    - name: regular_users_cannot_refund_orders
+      role: user
+      resource:
+        list_method: GET
+        list_path: /orders
+        id_field: id
+        owner_field: owner_id
+      attack:
+        method: POST
+        path_template: /orders/{id}/refund
+      expected_status: 403
+    - name: regular_users_cannot_approve_orders
+      role: user
+      resource:
+        list_method: GET
+        list_path: /orders
+        id_field: id
+        owner_field: owner_id
+      attack:
+        method: POST
+        path_template: /orders/{id}/approve
+      expected_status: 403
+    - name: regular_users_cannot_list_admin_users
+      role: user
+      attack:
+        method: GET
+        path_template: /admin/users
+      expected_status: 403

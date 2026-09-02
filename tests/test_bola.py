@@ -4,6 +4,7 @@ import httpx
 
 from scanner.core.config import (
     AuthConfig,
+    BflaConfig,
     BolaAttackConfig,
     BolaConfig,
     BolaResourceConfig,
@@ -61,6 +62,7 @@ def build_config(expected_status: int = 403) -> ScannerConfig:
                 )
             ]
         ),
+        bfla=BflaConfig(tests=[]),
     )
 
 

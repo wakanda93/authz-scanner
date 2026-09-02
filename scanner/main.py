@@ -10,6 +10,7 @@ from scanner.core.config import ScannerConfig, load_config
 from scanner.core.executor import HttpExecutor
 from scanner.core.finding import Finding
 from scanner.core.identity import AuthenticatedIdentity, login_all_identities
+from scanner.modules.bfla import run_bfla_tests
 from scanner.modules.bola import run_bola_tests
 
 
@@ -48,6 +49,13 @@ def run_scan(config: ScannerConfig) -> ScannerRunResult:
             executor=executor,
             config=config,
             identities=identities,
+        )
+        findings.extend(
+            run_bfla_tests(
+                executor=executor,
+                config=config,
+                identities=identities,
+            )
         )
 
     openapi_title = None
@@ -90,7 +98,7 @@ def print_scan_result(result: ScannerRunResult) -> None:
         "ok" if result.openapi_ok else "failed",
         result.openapi_title or str(result.openapi_status_code),
     )
-    table.add_row("Findings", str(result.finding_count), "BOLA checks completed")
+    table.add_row("Findings", str(result.finding_count), "BOLA and BFLA checks completed")
     console.print(table)
 
     if result.findings:

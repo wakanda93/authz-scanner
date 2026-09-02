@@ -2,6 +2,9 @@ import httpx
 
 from scanner.core.config import (
     AuthConfig,
+    BflaAttackConfig,
+    BflaConfig,
+    BflaTestConfig,
     BolaAttackConfig,
     BolaConfig,
     BolaResourceConfig,
@@ -55,6 +58,19 @@ def build_config() -> ScannerConfig:
                 )
             ]
         ),
+        bfla=BflaConfig(
+            tests=[
+                BflaTestConfig(
+                    name="low_privilege_users_cannot_open_admin_panel",
+                    role="user",
+                    attack=BflaAttackConfig(
+                        method="GET",
+                        path_template="/admin/users",
+                    ),
+                    expected_status=403,
+                )
+            ]
+        ),
     )
 
 
@@ -76,6 +92,8 @@ def test_run_scan_logs_in_identities_checks_api_and_runs_bola(monkeypatch) -> No
                 ],
             )
         if request.url.path == "/resources/resource-owned-by-owner":
+            return httpx.Response(403, json={"detail": "Forbidden"})
+        if request.url.path == "/admin/users":
             return httpx.Response(403, json={"detail": "Forbidden"})
         return httpx.Response(404, json={})
 

@@ -53,12 +53,38 @@ class BolaConfig(BaseModel):
     tests: list[BolaTestConfig]
 
 
+class BflaResourceConfig(BaseModel):
+    list_method: str
+    list_path: str
+    id_field: str
+    owner_field: str | None = None
+
+
+class BflaAttackConfig(BaseModel):
+    method: str
+    path_template: str
+    json_body: dict[str, Any] | None = None
+
+
+class BflaTestConfig(BaseModel):
+    name: str
+    role: str
+    attack: BflaAttackConfig
+    expected_status: int
+    resource: BflaResourceConfig | None = None
+
+
+class BflaConfig(BaseModel):
+    tests: list[BflaTestConfig]
+
+
 class ScannerConfig(BaseModel):
     target: TargetConfig
     auth: AuthConfig
     profile: ProfileConfig
     identities: dict[str, IdentityConfig]
     bola: BolaConfig
+    bfla: BflaConfig
 
 
 def load_config(path: str | Path) -> ScannerConfig:
