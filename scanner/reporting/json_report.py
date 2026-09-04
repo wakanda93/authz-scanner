@@ -5,9 +5,41 @@ from pathlib import Path
 from typing import Any
 
 
+SENSITIVE_REPORT_FIELDS = {
+    "access_token",
+    "api_key",
+    "card_number",
+    "credit_card",
+    "cvv",
+    "hashed_password",
+    "mfa_secret",
+    "national_id",
+    "otp_secret",
+    "password",
+    "password_hash",
+    "private_key",
+    "refresh_token",
+    "reset_token",
+    "secret",
+    "ssn",
+    "token",
+}
+
+
 def sanitize_filename_part(value: str) -> str:
     normalized = re.sub(r"[^a-zA-Z0-9_-]+", "-", value.strip().lower())
     return normalized.strip("-") or "target"
+
+
+def redact_sensitive_values(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: "[REDACTED]" if key in SENSITIVE_REPORT_FIELDS else redact_sensitive_values(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [redact_sensitive_values(item) for item in value]
+    return value
 
 
 def build_json_report(result: Any, generated_at: datetime | None = None) -> dict[str, Any]:
@@ -60,8 +92,8 @@ def build_json_report(result: Any, generated_at: datetime | None = None) -> dict
                             "method": evidence.observed.method,
                             "path": evidence.observed.path,
                             "status_code": evidence.observed.status_code,
-                            "request_json": evidence.observed.request_json,
-                            "response_json": evidence.observed.response_json,
+                            "request_json": redact_sensitive_values(evidence.observed.request_json),
+                            "response_json": redact_sensitive_values(evidence.observed.response_json),
                             "response_text": evidence.observed.response_text,
                         },
                     }

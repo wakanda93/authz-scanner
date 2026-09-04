@@ -6,7 +6,12 @@ from scanner.core.finding import Finding, Severity, VulnerabilityClass
 from scanner.core.identity import AuthenticatedIdentity
 from scanner.core.result import HttpRequestResult
 from scanner.main import ScannerRunResult
-from scanner.reporting.json_report import build_json_report, sanitize_filename_part, write_json_report
+from scanner.reporting.json_report import (
+    build_json_report,
+    redact_sensitive_values,
+    sanitize_filename_part,
+    write_json_report,
+)
 
 
 def build_result() -> ScannerRunResult:
@@ -15,8 +20,8 @@ def build_result() -> ScannerRunResult:
         method="GET",
         path="/resources/1",
         status_code=200,
-        request_json=None,
-        response_json={"id": "1", "owner_id": "other-subject"},
+        request_json={"password": "secret-password"},
+        response_json={"id": "1", "owner_id": "other-subject", "password_hash": "secret-hash"},
     )
     finding = Finding(
         title="BOLA: same_role_users_cannot_read_each_others_resources",
@@ -59,6 +64,28 @@ def test_sanitize_filename_part_keeps_report_filenames_simple() -> None:
     assert sanitize_filename_part("   ") == "target"
 
 
+def test_redact_sensitive_values_redacts_nested_report_data() -> None:
+    redacted = redact_sensitive_values(
+        {
+            "password": "secret-password",
+            "profile": {
+                "api_key": "secret-api-key",
+                "sessions": [{"refresh_token": "secret-refresh-token"}],
+            },
+            "email": "regular@example.test",
+        }
+    )
+
+    assert redacted == {
+        "password": "[REDACTED]",
+        "profile": {
+            "api_key": "[REDACTED]",
+            "sessions": [{"refresh_token": "[REDACTED]"}],
+        },
+        "email": "regular@example.test",
+    }
+
+
 def test_build_json_report_serializes_scan_result_without_tokens() -> None:
     report = build_json_report(
         build_result(),
@@ -86,7 +113,13 @@ def test_build_json_report_serializes_scan_result_without_tokens() -> None:
     assert report["summary"]["finding_count"] == 1
     assert report["findings"][0]["class"] == "BOLA"
     assert report["findings"][0]["evidence"][0]["expected_status_code"] == 403
+    assert report["findings"][0]["evidence"][0]["observed"]["request_json"] == {
+        "password": "[REDACTED]"
+    }
     assert report["findings"][0]["evidence"][0]["observed"]["status_code"] == 200
+    assert report["findings"][0]["evidence"][0]["observed"]["response_json"]["password_hash"] == (
+        "[REDACTED]"
+    )
 
 
 def test_write_json_report_creates_report_file(tmp_path) -> None:

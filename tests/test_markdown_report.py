@@ -7,6 +7,7 @@ from scanner.core.result import HttpRequestResult
 from scanner.main import ScannerRunResult
 from scanner.reporting.markdown_report import (
     build_markdown_report,
+    count_findings_by_class,
     escape_table_cell,
     write_markdown_report,
 )
@@ -48,7 +49,12 @@ def build_finding() -> Finding:
                     method="GET",
                     path="/resources/1",
                     status_code=200,
-                    response_json={"id": "1", "owner_id": "other-subject"},
+                    request_json={"password": "secret-password"},
+                    response_json={
+                        "id": "1",
+                        "owner_id": "other-subject",
+                        "password_hash": "secret-hash",
+                    },
                 ),
                 expected_status_code=403,
                 description="Cross-user resource read succeeded.",
@@ -57,8 +63,43 @@ def build_finding() -> Finding:
     )
 
 
+def build_bfla_finding() -> Finding:
+    return Finding(
+        title="BFLA: regular_users_cannot_open_admin_panel",
+        vulnerability_class=VulnerabilityClass.BFLA,
+        severity=Severity.HIGH,
+        endpoint="/admin/users",
+        method="GET",
+        identity_name="regular",
+        description="A regular user accessed an admin function.",
+        recommendation="Require admin role before executing privileged functions.",
+        evidence=[
+            HttpEvidence(
+                observed=HttpRequestResult(
+                    identity_name="regular",
+                    method="GET",
+                    path="/admin/users",
+                    status_code=200,
+                    response_json=[],
+                ),
+                expected_status_code=403,
+                description="Admin user listing succeeded.",
+            )
+        ],
+    )
+
+
 def test_escape_table_cell_keeps_markdown_tables_valid() -> None:
     assert escape_table_cell("a|b\nc") == "a\\|b c"
+
+
+def test_count_findings_by_class_groups_findings_for_summary() -> None:
+    result = build_result([build_finding(), build_bfla_finding()])
+
+    assert count_findings_by_class(result) == {
+        "BOLA": 1,
+        "BFLA": 1,
+    }
 
 
 def test_build_markdown_report_includes_summary_findings_and_evidence() -> None:
@@ -70,11 +111,21 @@ def test_build_markdown_report_includes_summary_findings_and_evidence() -> None:
     assert "# AuthZ Scanner Report" in report
     assert "- Target: `External API`" in report
     assert "- Total Findings: `1`" in report
+    assert "### Findings by Class" in report
+    assert "| BOLA | 1 |" in report
+    assert "### Findings Table" in report
     assert "| 1 | high | BOLA | GET | `/resources/{id}` | regular |" in report
     assert "### 1. BOLA: same_role_users_cannot_read_each_others_resources" in report
     assert "- Expected Status: `403`" in report
     assert "- Observed Status: `200`" in report
+    assert "- Full Evidence: `Appendix 1.1`" in report
+    assert "## Evidence Appendix" in report
+    assert "### Appendix 1.1" in report
     assert '"owner_id": "other-subject"' in report
+    assert '"password": "[REDACTED]"' in report
+    assert '"password_hash": "[REDACTED]"' in report
+    assert "secret-password" not in report
+    assert "secret-hash" not in report
     assert "Check resource ownership before returning the resource." in report
     assert "secret-token" not in report
 

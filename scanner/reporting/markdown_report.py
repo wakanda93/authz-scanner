@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from scanner.reporting.json_report import sanitize_filename_part
+from scanner.reporting.json_report import redact_sensitive_values, sanitize_filename_part
 
 
 def escape_table_cell(value: object) -> str:
@@ -18,6 +18,14 @@ def format_json_block(value: Any) -> str:
     if value is None:
         return "`null`"
     return "```json\n" + json.dumps(value, indent=2) + "\n```"
+
+
+def count_findings_by_class(result: Any) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for finding in result.findings:
+        class_name = finding.vulnerability_class.value
+        counts[class_name] = counts.get(class_name, 0) + 1
+    return counts
 
 
 def build_markdown_report(result: Any, generated_at: datetime | None = None) -> str:
@@ -70,6 +78,18 @@ def build_markdown_report(result: Any, generated_at: datetime | None = None) -> 
 
     lines.extend(
         [
+            "### Findings by Class",
+            "",
+            "| Class | Count |",
+            "|---|---|",
+        ]
+    )
+    for class_name, count in count_findings_by_class(result).items():
+        lines.append(f"| {escape_table_cell(class_name)} | {count} |")
+
+    lines.extend(["", "### Findings Table", ""])
+    lines.extend(
+        [
             "| # | Severity | Class | Method | Endpoint | Identity |",
             "|---|---|---|---|---|---|",
         ]
@@ -113,14 +133,7 @@ def build_markdown_report(result: Any, generated_at: datetime | None = None) -> 
                     f"- Expected Status: `{evidence.expected_status_code}`",
                     f"- Observed Status: `{observed.status_code}`",
                     f"- Observed Request: `{observed.method} {observed.path}`",
-                    "",
-                    "Request Body:",
-                    "",
-                    format_json_block(observed.request_json),
-                    "",
-                    "Response Body:",
-                    "",
-                    format_json_block(observed.response_json or observed.response_text),
+                    f"- Full Evidence: `Appendix {index}.{evidence_index}`",
                     "",
                 ]
             )
@@ -133,6 +146,31 @@ def build_markdown_report(result: Any, generated_at: datetime | None = None) -> 
                 "",
             ]
         )
+
+    lines.extend(["## Evidence Appendix", ""])
+
+    for finding_index, finding in enumerate(result.findings, start=1):
+        for evidence_index, evidence in enumerate(finding.evidence, start=1):
+            observed = evidence.observed
+            lines.extend(
+                [
+                    f"### Appendix {finding_index}.{evidence_index}",
+                    "",
+                    f"- Finding: `{finding.title}`",
+                    f"- Observed Request: `{observed.method} {observed.path}`",
+                    f"- Expected Status: `{evidence.expected_status_code}`",
+                    f"- Observed Status: `{observed.status_code}`",
+                    "",
+                    "Request Body:",
+                    "",
+                    format_json_block(redact_sensitive_values(observed.request_json)),
+                    "",
+                    "Response Body:",
+                    "",
+                    format_json_block(redact_sensitive_values(observed.response_json) or observed.response_text),
+                    "",
+                ]
+            )
 
     return "\n".join(lines).rstrip() + "\n"
 
