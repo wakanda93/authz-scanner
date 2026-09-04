@@ -16,7 +16,14 @@ from scanner.core.config import (
     TargetConfig,
 )
 from scanner.core.identity import AuthenticatedIdentity
-from scanner.main import ScannerRunResult, load_scanner_config, run_cli, run_scan, write_reports
+from scanner.main import (
+    ScannerRunResult,
+    load_scanner_config,
+    print_comparison_result,
+    run_cli,
+    run_scan,
+    write_reports,
+)
 
 
 def build_config() -> ScannerConfig:
@@ -197,3 +204,93 @@ property_auth:
     captured = capsys.readouterr()
     assert exit_code == 2
     assert "Connection error" in captured.err
+
+
+def test_print_comparison_result_shows_each_target(capsys) -> None:
+    results = [
+        ScannerRunResult(
+            target_name="vulnerable",
+            base_url="http://vulnerable.test",
+            identities={},
+            health_status_code=200,
+            openapi_status_code=200,
+            findings=[],
+        ),
+        ScannerRunResult(
+            target_name="hardened",
+            base_url="http://hardened.test",
+            identities={},
+            health_status_code=200,
+            openapi_status_code=200,
+            findings=[],
+        ),
+    ]
+
+    print_comparison_result(results)
+
+    captured = capsys.readouterr()
+    assert "AuthZ Scanner Comparison" in captured.out
+    assert "vulnerable" in captured.out
+    assert "hardened" in captured.out
+
+
+def test_run_cli_compare_config_runs_two_targets(tmp_path, monkeypatch, capsys) -> None:
+    first_config = tmp_path / "first.yaml"
+    second_config = tmp_path / "second.yaml"
+    base_config = """
+auth:
+  login_path: /session
+  token_field: token
+
+profile:
+  path: /me
+  id_field: subject_id
+
+identities:
+  regular:
+    email: regular@example.test
+    password: regular-secret
+    role: user
+
+bola:
+  tests: []
+
+bfla:
+  tests: []
+
+property_auth:
+  tests: []
+"""
+    first_config.write_text(
+        "target:\n  name: first\n  base_url: http://first.test\n\n" + base_config
+    )
+    second_config.write_text(
+        "target:\n  name: second\n  base_url: http://second.test\n\n" + base_config
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/session":
+            return httpx.Response(200, json={"token": "regular-token"})
+        if request.url.path == "/health":
+            return httpx.Response(200, json={"status": "ok"})
+        if request.url.path == "/openapi.json":
+            return httpx.Response(200, json={"info": {"title": request.url.host}, "paths": {}})
+        return httpx.Response(404, json={})
+
+    class MockClient(httpx.Client):
+        def __init__(self, *args, **kwargs) -> None:
+            super().__init__(
+                transport=httpx.MockTransport(handler),
+                base_url=kwargs["base_url"],
+                timeout=kwargs["timeout"],
+            )
+
+    monkeypatch.setattr(httpx, "Client", MockClient)
+
+    exit_code = run_cli(["--compare-config", str(first_config), str(second_config)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "AuthZ Scanner Comparison" in captured.out
+    assert "first" in captured.out
+    assert "second" in captured.out

@@ -172,13 +172,41 @@ def write_reports(result: ScannerRunResult, report_format: str, report_dir: Path
     return report_paths
 
 
+def print_comparison_result(results: list[ScannerRunResult]) -> None:
+    console = Console()
+    table = Table(title="AuthZ Scanner Comparison")
+    table.add_column("Target")
+    table.add_column("Base URL")
+    table.add_column("Health")
+    table.add_column("OpenAPI")
+    table.add_column("Findings")
+
+    for result in results:
+        table.add_row(
+            result.target_name,
+            result.base_url,
+            "ok" if result.health_ok else str(result.health_status_code),
+            "ok" if result.openapi_ok else str(result.openapi_status_code),
+            str(result.finding_count),
+        )
+
+    console.print(table)
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="AuthZ Scanner")
-    parser.add_argument(
+    target_group = parser.add_mutually_exclusive_group(required=True)
+    target_group.add_argument(
         "--config",
         type=Path,
-        required=True,
         help="Path to scanner YAML config.",
+    )
+    target_group.add_argument(
+        "--compare-config",
+        nargs=2,
+        type=Path,
+        metavar=("FIRST_CONFIG", "SECOND_CONFIG"),
+        help="Run two scanner configs and print a comparison summary.",
     )
     parser.add_argument(
         "--report-format",
@@ -210,11 +238,21 @@ def run_cli(argv: list[str] | None = None) -> int:
     console = Console(stderr=True)
     try:
         args = parse_args(argv)
-        config = load_scanner_config(args.config)
-        result = run_scan(config)
-        print_scan_result(result)
-        for report_path in write_reports(result, args.report_format, args.report_dir):
-            Console().print(f"Report written: {report_path}")
+        if args.config is not None:
+            config = load_scanner_config(args.config)
+            result = run_scan(config)
+            print_scan_result(result)
+            results = [result]
+        else:
+            results = [
+                run_scan(load_scanner_config(config_path))
+                for config_path in args.compare_config
+            ]
+            print_comparison_result(results)
+
+        for result in results:
+            for report_path in write_reports(result, args.report_format, args.report_dir):
+                Console().print(f"Report written: {report_path}")
     except ScannerCliError as exc:
         console.print(f"Scanner error: {exc}")
         return 2

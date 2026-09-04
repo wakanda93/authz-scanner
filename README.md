@@ -19,7 +19,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Planlanan Yapi
+## Proje Yapisi
 
 ```text
 apps/
@@ -36,7 +36,7 @@ reports/
 
 ## API'leri Calistirma
 
-Iki API ayri portlarda calistirilir.
+Iki API ayri portlarda calistirilir. Karsilastirmali scan icin iki API'nin ayni anda acik olmasi gerekir.
 
 Vulnerable API:
 
@@ -89,10 +89,12 @@ curl -s -X POST http://127.0.0.1:8001/auth/login \
 Testleri calistirma:
 
 ```bash
-pytest
+python -m pytest
 ```
 
-Scanner'i calistirma:
+## Scanner Kullanimi
+
+Tek hedef tarama:
 
 ```bash
 python -m scanner.main --config config/vulnerable.yaml
@@ -117,7 +119,31 @@ JSON ve Markdown raporu birlikte uretme:
 python -m scanner.main --config config/vulnerable.yaml --report-format all
 ```
 
+Iki hedefi karsilastirma:
+
+```bash
+python -m scanner.main --compare-config config/vulnerable.yaml config/hardened.yaml
+```
+
+Beklenen demo karsilastirma sonucu:
+
+```text
+vulnerable: 13 findings
+hardened: 0 findings
+```
+
 Rapor dosyalari varsayilan olarak `reports/` klasorune yazilir.
+
+## Hata Yonetimi
+
+Scanner, yaygin calisma hatalarini traceback yerine kisa CLI mesajlariyla raporlar:
+
+- Eksik config dosyasi: `Scanner error: Config file not found`
+- Gecersiz config dosyasi: `Scanner error: Config file is invalid`
+- Login hatasi: `Authentication error`
+- Kapali veya erisilemeyen API: `Connection error`
+
+Bu durumlarda scanner `2` exit code ile kapanir.
 
 ## Mevcut Kapsam
 
@@ -141,4 +167,5 @@ Property authorization kapsami uc davranisi kontrol eder:
 
 ## Gelecek Gelistirmeler
 
+- Demo veri reseti: Mutasyonlu scanner testlerinden sonra demo veriyi tek komutla temiz duruma getiren yardimci akis eklenebilir.
 - OpenAPI tabanli config discovery: Scanner ileride hedef API'nin `/openapi.json` dokumanini okuyarak taslak config uretebilir. Bu ozellik manuel config yaklasiminin yerine gecmekten cok, yeni API'ler icin baslangic config'i hazirlayan yardimci bir katman olarak planlanir. Authorization kurallari is kuralina bagli oldugu icin uretilen config insan tarafindan kontrol edilmelidir.
