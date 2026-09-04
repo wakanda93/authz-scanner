@@ -111,6 +111,12 @@ Markdown rapor uretme:
 python -m scanner.main --config config/vulnerable.yaml --report-format markdown
 ```
 
+JSON ve Markdown raporu birlikte uretme:
+
+```bash
+python -m scanner.main --config config/vulnerable.yaml --report-format all
+```
+
 Rapor dosyalari varsayilan olarak `reports/` klasorune yazilir.
 
 ## Mevcut Kapsam

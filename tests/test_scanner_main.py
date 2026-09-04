@@ -15,7 +15,8 @@ from scanner.core.config import (
     ScannerConfig,
     TargetConfig,
 )
-from scanner.main import run_scan
+from scanner.core.identity import AuthenticatedIdentity
+from scanner.main import ScannerRunResult, run_scan, write_reports
 
 
 def build_config() -> ScannerConfig:
@@ -121,3 +122,27 @@ def test_run_scan_logs_in_identities_checks_api_and_runs_bola(monkeypatch) -> No
     assert result.openapi_title == "External API"
     assert result.findings == []
     assert result.finding_count == 0
+
+
+def test_write_reports_writes_json_and_markdown_when_format_is_all(tmp_path) -> None:
+    scanner_result = ScannerRunResult(
+        target_name="external-api",
+        base_url="http://testserver",
+        identities={
+            "regular": AuthenticatedIdentity(
+                name="regular",
+                email="regular@example.test",
+                role="user",
+                access_token="secret-token",
+            )
+        },
+        health_status_code=200,
+        openapi_status_code=200,
+        openapi_title="External API",
+        findings=[],
+    )
+
+    report_paths = write_reports(scanner_result, "all", tmp_path)
+
+    assert len(report_paths) == 2
+    assert {path.suffix for path in report_paths} == {".json", ".md"}

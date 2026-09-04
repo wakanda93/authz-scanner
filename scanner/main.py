@@ -155,6 +155,15 @@ def print_smoke_result(result: SmokeScanResult) -> None:
     console.print(table)
 
 
+def write_reports(result: ScannerRunResult, report_format: str, report_dir: Path) -> list[Path]:
+    report_paths: list[Path] = []
+    if report_format in {"json", "all"}:
+        report_paths.append(write_json_report(result, report_dir))
+    if report_format in {"markdown", "all"}:
+        report_paths.append(write_markdown_report(result, report_dir))
+    return report_paths
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="AuthZ Scanner")
     parser.add_argument(
@@ -165,7 +174,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--report-format",
-        choices=["none", "json", "markdown"],
+        choices=["none", "json", "markdown", "all"],
         default="none",
         help="Optional report output format.",
     )
@@ -183,12 +192,8 @@ def main() -> None:
     config = load_config(args.config)
     result = run_scan(config)
     print_scan_result(result)
-    if args.report_format == "json":
-        report_path = write_json_report(result, args.report_dir)
-        Console().print(f"JSON report written: {report_path}")
-    if args.report_format == "markdown":
-        report_path = write_markdown_report(result, args.report_dir)
-        Console().print(f"Markdown report written: {report_path}")
+    for report_path in write_reports(result, args.report_format, args.report_dir):
+        Console().print(f"Report written: {report_path}")
 
 
 if __name__ == "__main__":
