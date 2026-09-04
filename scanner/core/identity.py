@@ -38,7 +38,11 @@ def login_identity(
             f"Login failed for identity '{name}' with status {response.status_code}"
         )
 
-    body = response.json()
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise IdentityLoginError(f"Login response for identity '{name}' was not valid JSON") from exc
+
     access_token = body.get(token_field)
     if not isinstance(access_token, str) or not access_token:
         raise IdentityLoginError(

@@ -1,4 +1,5 @@
 import argparse
+import sys
 from pathlib import Path
 
 import httpx
@@ -9,12 +10,16 @@ from rich.table import Table
 from scanner.core.config import ScannerConfig, load_config
 from scanner.core.executor import HttpExecutor
 from scanner.core.finding import Finding
-from scanner.core.identity import AuthenticatedIdentity, login_all_identities
+from scanner.core.identity import AuthenticatedIdentity, IdentityLoginError, login_all_identities
 from scanner.modules.bfla import run_bfla_tests
 from scanner.modules.bola import run_bola_tests
 from scanner.modules.property_auth import run_property_auth_tests
 from scanner.reporting.json_report import write_json_report
 from scanner.reporting.markdown_report import write_markdown_report
+
+
+class ScannerCliError(RuntimeError):
+    pass
 
 
 class SmokeScanResult(BaseModel):
@@ -70,7 +75,10 @@ def run_scan(config: ScannerConfig) -> ScannerRunResult:
 
     openapi_title = None
     if openapi_response.status_code == 200:
-        openapi_body = openapi_response.json()
+        try:
+            openapi_body = openapi_response.json()
+        except ValueError:
+            openapi_body = None
         if isinstance(openapi_body, dict):
             info = openapi_body.get("info", {})
             if isinstance(info, dict):
@@ -164,7 +172,7 @@ def write_reports(result: ScannerRunResult, report_format: str, report_dir: Path
     return report_paths
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="AuthZ Scanner")
     parser.add_argument(
         "--config",
@@ -184,16 +192,44 @@ def parse_args() -> argparse.Namespace:
         default=Path("reports"),
         help="Directory for generated report files.",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def load_scanner_config(config_path: Path) -> ScannerConfig:
+    try:
+        return load_config(config_path)
+    except FileNotFoundError as exc:
+        raise ScannerCliError(f"Config file not found: {config_path}") from exc
+    except PermissionError as exc:
+        raise ScannerCliError(f"Config file is not readable: {config_path}") from exc
+    except ValueError as exc:
+        raise ScannerCliError(f"Config file is invalid: {exc}") from exc
+
+
+def run_cli(argv: list[str] | None = None) -> int:
+    console = Console(stderr=True)
+    try:
+        args = parse_args(argv)
+        config = load_scanner_config(args.config)
+        result = run_scan(config)
+        print_scan_result(result)
+        for report_path in write_reports(result, args.report_format, args.report_dir):
+            Console().print(f"Report written: {report_path}")
+    except ScannerCliError as exc:
+        console.print(f"Scanner error: {exc}")
+        return 2
+    except IdentityLoginError as exc:
+        console.print(f"Authentication error: {exc}")
+        return 2
+    except httpx.RequestError as exc:
+        console.print(f"Connection error: could not reach target API ({exc})")
+        return 2
+
+    return 0
 
 
 def main() -> None:
-    args = parse_args()
-    config = load_config(args.config)
-    result = run_scan(config)
-    print_scan_result(result)
-    for report_path in write_reports(result, args.report_format, args.report_dir):
-        Console().print(f"Report written: {report_path}")
+    sys.exit(run_cli())
 
 
 if __name__ == "__main__":

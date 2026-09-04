@@ -16,7 +16,7 @@ from scanner.core.config import (
     TargetConfig,
 )
 from scanner.core.identity import AuthenticatedIdentity
-from scanner.main import ScannerRunResult, run_scan, write_reports
+from scanner.main import ScannerRunResult, load_scanner_config, run_cli, run_scan, write_reports
 
 
 def build_config() -> ScannerConfig:
@@ -146,3 +146,54 @@ def test_write_reports_writes_json_and_markdown_when_format_is_all(tmp_path) -> 
 
     assert len(report_paths) == 2
     assert {path.suffix for path in report_paths} == {".json", ".md"}
+
+
+def test_load_scanner_config_reports_missing_file_as_cli_error(tmp_path) -> None:
+    missing_config = tmp_path / "missing.yaml"
+
+    try:
+        load_scanner_config(missing_config)
+    except RuntimeError as exc:
+        assert "Config file not found" in str(exc)
+    else:
+        raise AssertionError("Expected missing config to raise RuntimeError")
+
+
+def test_run_cli_returns_error_code_when_target_is_unreachable(tmp_path, capsys) -> None:
+    config_path = tmp_path / "scanner.yaml"
+    config_path.write_text(
+        """
+target:
+  name: unreachable
+  base_url: http://127.0.0.1:1
+
+auth:
+  login_path: /auth/login
+  token_field: access_token
+
+profile:
+  path: /users/me
+  id_field: id
+
+identities:
+  regular:
+    email: regular@example.test
+    password: regular-secret
+    role: user
+
+bola:
+  tests: []
+
+bfla:
+  tests: []
+
+property_auth:
+  tests: []
+"""
+    )
+
+    exit_code = run_cli(["--config", str(config_path)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "Connection error" in captured.err

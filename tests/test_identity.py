@@ -131,3 +131,20 @@ def test_login_identity_raises_when_token_field_is_missing() -> None:
             name="owner",
             identity=config.identities["owner"],
         )
+
+
+def test_login_identity_raises_when_login_response_is_not_json() -> None:
+    client = httpx.Client(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, text="not-json")),
+        base_url="http://testserver",
+    )
+    config = build_config()
+
+    with pytest.raises(IdentityLoginError, match="was not valid JSON"):
+        login_identity(
+            client=client,
+            login_path=config.auth.login_path,
+            token_field=config.auth.token_field,
+            name="owner",
+            identity=config.identities["owner"],
+        )
