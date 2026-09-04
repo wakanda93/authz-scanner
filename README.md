@@ -48,6 +48,10 @@ scanner/
 config/
   vulnerable.yaml        # Vulnerable API scanner config'i
   hardened.yaml          # Hardened API scanner config'i
+  example_external.yaml  # Yeni API'lere uyarlama icin ornek config
+
+docs/
+  configuration.md       # Scanner config alanlari ve uyarlama rehberi
 
 tests/                   # API, scanner ve raporlama testleri
 reports/                 # Lokal rapor ciktilari
@@ -148,6 +152,8 @@ hardened: 0 findings
 
 Rapor dosyalari varsayilan olarak `reports/` klasorune yazilir. Bu klasor lokal calisma ciktisi olarak tutulur ve GitHub'a gonderilmez.
 
+Her rapor uretiminde `reports/manifest.json` guncellenir. Son uretilen raporlara kolay erisim icin `reports/latest.json` ve `reports/latest.md` dosyalari da olusturulur.
+
 ## Raporlama
 
 Scanner iki rapor formati uretir:
@@ -228,6 +234,8 @@ Test kapsami su alanlari icerir:
 - Karsilastirmali scan komutu
 - Demo veri reset komutu
 
+GitHub Actions pipeline'i her push ve pull request icin testleri otomatik calistirir.
+
 ## Tasinabilirlik
 
 Scanner motoru demo API'ye dogrudan bagimli olacak sekilde yazilmamistir. Baska bir REST API icin temel olarak yeni bir config dosyasi gerekir:
@@ -241,11 +249,11 @@ Scanner motoru demo API'ye dogrudan bagimli olacak sekilde yazilmamistir. Baska 
 
 Authorization kurallari is kuralina bagli oldugu icin scanner bunlari tamamen otomatik bilemez. Bu nedenle mevcut yaklasim manuel config uzerinden kontrollu test tanimlamaktir.
 
+Config alanlari ve yeni API'ye uyarlama akisi icin [docs/configuration.md](docs/configuration.md) dosyasina bakilabilir. Baslangic sablonu olarak [config/example_external.yaml](config/example_external.yaml) kullanilabilir.
+
 ## Gelecek Gelistirmeler
 
 - OpenAPI tabanli config discovery: `/openapi.json` dokumanindan baslangic config taslagi uretme.
 - HTML rapor: Markdown raporun daha gorsel bir HTML ciktisi.
 - Severity configuration: Bulgu severity degerlerini config uzerinden yonetme.
-- Report manifest: Son uretilen raporlari takip eden `manifest.json` veya `latest` dosyalari.
-- CI pipeline: Testleri GitHub Actions ile otomatik calistirma.
 - Docker destegi: Iki API ve scanner icin tekrarlanabilir container tabanli calisma ortami.

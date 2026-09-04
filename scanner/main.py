@@ -1,5 +1,6 @@
 import argparse
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -15,6 +16,7 @@ from scanner.modules.bfla import run_bfla_tests
 from scanner.modules.bola import run_bola_tests
 from scanner.modules.property_auth import run_property_auth_tests
 from scanner.reporting.json_report import write_json_report
+from scanner.reporting.manifest import update_report_manifest
 from scanner.reporting.markdown_report import write_markdown_report
 
 
@@ -165,10 +167,13 @@ def print_smoke_result(result: SmokeScanResult) -> None:
 
 def write_reports(result: ScannerRunResult, report_format: str, report_dir: Path) -> list[Path]:
     report_paths: list[Path] = []
+    generated_at = datetime.now(UTC)
     if report_format in {"json", "all"}:
-        report_paths.append(write_json_report(result, report_dir))
+        report_paths.append(write_json_report(result, report_dir, generated_at=generated_at))
     if report_format in {"markdown", "all"}:
-        report_paths.append(write_markdown_report(result, report_dir))
+        report_paths.append(write_markdown_report(result, report_dir, generated_at=generated_at))
+    if report_paths:
+        update_report_manifest(result, report_paths, report_dir, generated_at=generated_at)
     return report_paths
 
 

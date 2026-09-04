@@ -153,6 +153,9 @@ def test_write_reports_writes_json_and_markdown_when_format_is_all(tmp_path) -> 
 
     assert len(report_paths) == 2
     assert {path.suffix for path in report_paths} == {".json", ".md"}
+    assert (tmp_path / "manifest.json").exists()
+    assert (tmp_path / "latest.json").exists()
+    assert (tmp_path / "latest.md").exists()
 
 
 def test_load_scanner_config_reports_missing_file_as_cli_error(tmp_path) -> None:
