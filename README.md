@@ -134,6 +134,14 @@ hardened: 0 findings
 
 Rapor dosyalari varsayilan olarak `reports/` klasorune yazilir.
 
+Demo verisini sifirlama:
+
+```bash
+python -m apps.reset_demo_data
+```
+
+Bu komut scanner'dan bagimsizdir. Vulnerable ve hardened API'lerin SQLite demo verisini baslangic seed durumuna geri alir. Mutasyonlu scanner testlerinden sonra lokal demo ortamini temizlemek icin kullanilir.
+
 ## Hata Yonetimi
 
 Scanner, yaygin calisma hatalarini traceback yerine kisa CLI mesajlariyla raporlar:
@@ -167,5 +175,4 @@ Property authorization kapsami uc davranisi kontrol eder:
 
 ## Gelecek Gelistirmeler
 
-- Demo veri reseti: Mutasyonlu scanner testlerinden sonra demo veriyi tek komutla temiz duruma getiren yardimci akis eklenebilir.
 - OpenAPI tabanli config discovery: Scanner ileride hedef API'nin `/openapi.json` dokumanini okuyarak taslak config uretebilir. Bu ozellik manuel config yaklasiminin yerine gecmekten cok, yeni API'ler icin baslangic config'i hazirlayan yardimci bir katman olarak planlanir. Authorization kurallari is kuralina bagli oldugu icin uretilen config insan tarafindan kontrol edilmelidir.

@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from apps.vulnerable_api.auth import get_password_hash
@@ -90,3 +90,11 @@ def seed_database(db: Session) -> None:
         ]
     )
     db.commit()
+
+
+def reset_database(db: Session) -> None:
+    db.execute(delete(OrderItem))
+    db.execute(delete(Order))
+    db.execute(delete(User))
+    db.commit()
+    seed_database(db)
