@@ -7,8 +7,11 @@ from scanner.core.result import HttpRequestResult
 from scanner.main import ScannerRunResult
 from scanner.reporting.markdown_report import (
     build_markdown_report,
+    build_reproduction_steps,
     count_findings_by_class,
     escape_table_cell,
+    get_impact_statement,
+    get_owasp_api_category,
     write_markdown_report,
 )
 
@@ -102,6 +105,31 @@ def test_count_findings_by_class_groups_findings_for_summary() -> None:
     }
 
 
+def test_get_owasp_api_category_maps_known_authorization_classes() -> None:
+    assert get_owasp_api_category("BOLA") == "API1: Broken Object Level Authorization"
+    assert get_owasp_api_category("BFLA") == "API5: Broken Function Level Authorization"
+    assert get_owasp_api_category("Mass Assignment") == (
+        "API3: Broken Object Property Level Authorization"
+    )
+    assert get_owasp_api_category("Unknown") == "Unmapped"
+
+
+def test_get_impact_statement_returns_pentest_style_impact() -> None:
+    assert "another user" in get_impact_statement("BOLA")
+    assert "server-controlled properties" in get_impact_statement("Mass Assignment")
+
+
+def test_build_reproduction_steps_summarizes_observed_request() -> None:
+    steps = build_reproduction_steps(build_finding())
+
+    assert steps == [
+        "Authenticate as `regular`.",
+        "Send `GET /resources/1`.",
+        "Compare the observed status `200` with the expected status `403`.",
+        "Review the linked appendix entry for the sanitized request and response bodies.",
+    ]
+
+
 def test_build_markdown_report_includes_summary_findings_and_evidence() -> None:
     report = build_markdown_report(
         build_result([build_finding()]),
@@ -116,9 +144,18 @@ def test_build_markdown_report_includes_summary_findings_and_evidence() -> None:
     assert "### Findings Table" in report
     assert "| 1 | high | BOLA | GET | `/resources/{id}` | regular |" in report
     assert "### 1. BOLA: same_role_users_cannot_read_each_others_resources" in report
+    assert "- OWASP API Category: `API1: Broken Object Level Authorization`" in report
+    assert "#### Overview" in report
+    assert "#### Impact" in report
+    assert "An attacker may access or modify resources owned by another user" in report
+    assert "#### Affected Endpoint" in report
+    assert "#### Steps to Reproduce" in report
+    assert "1. Authenticate as `regular`." in report
+    assert "2. Send `GET /resources/1`." in report
     assert "- Expected Status: `403`" in report
     assert "- Observed Status: `200`" in report
     assert "- Full Evidence: `Appendix 1.1`" in report
+    assert "#### Remediation" in report
     assert "## Evidence Appendix" in report
     assert "### Appendix 1.1" in report
     assert '"owner_id": "other-subject"' in report

@@ -28,6 +28,57 @@ def count_findings_by_class(result: Any) -> dict[str, int]:
     return counts
 
 
+def get_owasp_api_category(vulnerability_class: str) -> str:
+    categories = {
+        "BOLA": "API1: Broken Object Level Authorization",
+        "BFLA": "API5: Broken Function Level Authorization",
+        "Excessive Data Exposure": "API3: Broken Object Property Level Authorization",
+        "Mass Assignment": "API3: Broken Object Property Level Authorization",
+        "Privilege Escalation": "API5: Broken Function Level Authorization",
+    }
+    return categories.get(vulnerability_class, "Unmapped")
+
+
+def get_impact_statement(vulnerability_class: str) -> str:
+    impacts = {
+        "BOLA": (
+            "An attacker may access or modify resources owned by another user by changing "
+            "object identifiers in the request."
+        ),
+        "BFLA": (
+            "A low-privilege user may execute functionality that should be restricted to "
+            "a privileged role."
+        ),
+        "Excessive Data Exposure": (
+            "The API may disclose sensitive object properties that clients do not need and "
+            "should not receive."
+        ),
+        "Mass Assignment": (
+            "A client may set server-controlled properties by adding unexpected fields to "
+            "the request body."
+        ),
+        "Privilege Escalation": (
+            "A low-privilege user may alter privilege-related properties and gain elevated "
+            "access."
+        ),
+    }
+    return impacts.get(vulnerability_class, "The behavior may weaken authorization guarantees.")
+
+
+def build_reproduction_steps(finding: Any) -> list[str]:
+    if not finding.evidence:
+        return ["Review the affected endpoint and reproduce the scanner request manually."]
+
+    evidence = finding.evidence[0]
+    observed = evidence.observed
+    return [
+        f"Authenticate as `{finding.identity_name}`.",
+        f"Send `{observed.method} {observed.path}`.",
+        f"Compare the observed status `{observed.status_code}` with the expected status `{evidence.expected_status_code}`.",
+        "Review the linked appendix entry for the sanitized request and response bodies.",
+    ]
+
+
 def build_markdown_report(result: Any, generated_at: datetime | None = None) -> str:
     timestamp = generated_at or datetime.now(UTC)
     lines: list[str] = [
@@ -114,10 +165,32 @@ def build_markdown_report(result: Any, generated_at: datetime | None = None) -> 
                 "",
                 f"- Severity: `{finding.severity.value}`",
                 f"- Class: `{finding.vulnerability_class.value}`",
+                f"- OWASP API Category: `{get_owasp_api_category(finding.vulnerability_class.value)}`",
                 f"- Endpoint: `{finding.method} {finding.endpoint}`",
                 f"- Identity: `{finding.identity_name}`",
                 "",
+                "#### Overview",
+                "",
                 finding.description,
+                "",
+                "#### Impact",
+                "",
+                get_impact_statement(finding.vulnerability_class.value),
+                "",
+                "#### Affected Endpoint",
+                "",
+                f"`{finding.method} {finding.endpoint}`",
+                "",
+                "#### Steps to Reproduce",
+                "",
+            ]
+        )
+
+        for step_index, step in enumerate(build_reproduction_steps(finding), start=1):
+            lines.append(f"{step_index}. {step}")
+
+        lines.extend(
+            [
                 "",
                 "#### Evidence",
                 "",
@@ -140,7 +213,7 @@ def build_markdown_report(result: Any, generated_at: datetime | None = None) -> 
 
         lines.extend(
             [
-                "#### Recommendation",
+                "#### Remediation",
                 "",
                 finding.recommendation,
                 "",
