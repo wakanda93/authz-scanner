@@ -1,167 +1,381 @@
 # AuthZ Scanner
 
-AuthZ Scanner, REST API'lerde authorization problemlerini test etmek icin gelistirilmis Python tabanli bir guvenlik test projesidir.
+AuthZ Scanner is a **config-driven REST API authorization security testing tool** built with Python.
 
-Proje iki parcadan olusur:
+The project is designed to test common authorization vulnerabilities across REST APIs and compare the behavior of intentionally vulnerable and hardened implementations.
 
-- Demo API laboratuvari: Bilerek zayif ve guvenli uygulanmis iki FastAPI hedefi.
-- Scanner motoru: API'leri HTTP uzerinden test eden, config-driven authorization scanner.
+It consists of two main components:
 
-Temel amac, ayni test motorunun iki farkli hedefte nasil davrandigini gostermektir:
+- A demo API laboratory containing vulnerable and hardened FastAPI applications
+- A reusable authorization scanner that performs HTTP-based security tests using YAML configuration files
 
-```text
-vulnerable API -> authorization bulgulari uretir
-hardened API   -> ayni testlerde bulgu uretmemelidir
-```
-
-## Kapsam
-
-Scanner su authorization zafiyet siniflarini kontrol eder:
-
-- BOLA: Broken Object Level Authorization
-- BFLA: Broken Function Level Authorization
-- Excessive Data Exposure
-- Mass Assignment
-- Privilege Escalation
-
-Demo API tarafinda bu davranislar bilincli olarak iki sekilde uygulanmistir:
-
-- `apps/vulnerable_api`: Zafiyetleri gostermek icin bilerek zayif davranislar icerir.
-- `apps/hardened_api`: Ayni endpointlerin guvenli uygulanmis halidir.
-
-Scanner tarafinda hedefe ozel endpointler koda gomulu degildir. Hedef URL, login bilgisi, kullanici kimlikleri ve test kurallari `config/*.yaml` dosyalarindan okunur.
-
-## Proje Yapisi
+The primary goal is to demonstrate how the same scanner behaves against two implementations of the same API:
 
 ```text
-apps/
-  vulnerable_api/        # Bilerek zayif demo API
-  hardened_api/          # Guvenli demo API
-  reset_demo_data.py     # Demo SQLite verisini sifirlayan yardimci komut
-
-scanner/
-  core/                  # Config, identity, executor, result, evidence, finding modelleri
-  modules/               # BOLA, BFLA ve property authorization scanner modulleri
-  reporting/             # JSON ve Markdown rapor ureticileri
-  main.py                # CLI giris noktasi
-
-config/
-  vulnerable.yaml        # Vulnerable API scanner config'i
-  hardened.yaml          # Hardened API scanner config'i
-  example_external.yaml  # Yeni API'lere uyarlama icin ornek config
-
-docs/
-  configuration.md       # Scanner config alanlari ve uyarlama rehberi
-
-tests/                   # API, scanner ve raporlama testleri
-reports/                 # Lokal rapor ciktilari
+Vulnerable API  -> authorization findings detected
+Hardened API    -> no findings expected for the same test cases
 ```
 
-## Kurulum
+---
+
+## Security Coverage
+
+AuthZ Scanner currently evaluates the following vulnerability classes:
+
+- **BOLA** — Broken Object Level Authorization
+- **BFLA** — Broken Function Level Authorization
+- **Excessive Data Exposure**
+- **Mass Assignment**
+- **Privilege Escalation**
+
+These behaviors are intentionally implemented in two different demo environments:
+
+- `apps/vulnerable_api` — intentionally insecure API used to demonstrate authorization vulnerabilities
+- `apps/hardened_api` — secured implementation of the same API behavior
+
+The scanner itself does not contain hardcoded target endpoints.
+
+Target URLs, authentication details, user identities, object identifiers, and test rules are defined through YAML configuration files under `config/`.
+
+---
+
+## Architecture
+
+```text
+                    +----------------------+
+                    |   Scanner Config     |
+                    |    YAML Files        |
+                    +----------+-----------+
+                               |
+                               v
+                    +----------------------+
+                    |   AuthZ Scanner      |
+                    |                      |
+                    |  Identity Manager    |
+                    |  HTTP Executor       |
+                    |  Scanner Modules     |
+                    |  Evidence Handling   |
+                    +----------+-----------+
+                               |
+               +---------------+---------------+
+               |                               |
+               v                               v
+    +----------------------+        +----------------------+
+    |   Vulnerable API     |        |    Hardened API      |
+    |      FastAPI         |        |       FastAPI        |
+    +----------+-----------+        +----------+-----------+
+               |                               |
+               v                               v
+       Findings Expected                No Findings Expected
+               |
+               v
+    +----------------------+
+    | Reporting Layer      |
+    | JSON / Markdown      |
+    +----------------------+
+```
+
+---
+
+## Project Structure
+
+```text
+authz-scanner/
+├── apps/
+│   ├── vulnerable_api/
+│   ├── hardened_api/
+│   └── reset_demo_data.py
+│
+├── scanner/
+│   ├── core/
+│   ├── modules/
+│   ├── reporting/
+│   └── main.py
+│
+├── config/
+│   ├── vulnerable.yaml
+│   ├── hardened.yaml
+│   └── example_external.yaml
+│
+├── docs/
+│   └── configuration.md
+│
+├── tests/
+├── reports/
+├── requirements.txt
+└── README.md
+```
+
+### Main Components
+
+#### `apps/`
+
+Contains the intentionally vulnerable and hardened FastAPI demo applications.
+
+#### `scanner/core/`
+
+Contains reusable scanner infrastructure including:
+
+- configuration handling
+- identity management
+- HTTP execution
+- result models
+- evidence models
+- finding models
+
+#### `scanner/modules/`
+
+Contains individual authorization testing modules such as:
+
+- BOLA scanner
+- BFLA scanner
+- property authorization scanner
+
+#### `scanner/reporting/`
+
+Generates machine-readable and human-readable security reports.
+
+#### `config/`
+
+Defines target-specific scanner behavior.
+
+This allows the scanner engine to remain independent from the demo API implementation.
+
+---
+
+## Installation
+
+Clone the repository:
 
 ```bash
+git clone https://github.com/tayfunozgur13/authz-scanner.git
 cd authz-scanner
+```
+
+Create a virtual environment:
+
+```bash
 python3 -m venv .venv
+```
+
+Activate it:
+
+### macOS / Linux
+
+```bash
 source .venv/bin/activate
+```
+
+### Windows
+
+```bash
+.venv\Scripts\activate
+```
+
+Install dependencies:
+
+```bash
 pip install -r requirements.txt
 ```
 
-Proje Cursor, VS Code veya baska bir editorle acilabilir. Kod editorunden bagimsiz standart Python repo yapisi kullanir.
+The project uses a standard Python repository structure and can be opened with editors such as VS Code, Cursor, or PyCharm.
 
-## Demo API'leri Calistirma
+---
 
-Vulnerable API:
+## Running the Demo APIs
+
+Start the intentionally vulnerable API:
 
 ```bash
 uvicorn apps.vulnerable_api.main:app --reload --port 8001
 ```
 
-Hardened API:
+Start the hardened API:
 
 ```bash
 uvicorn apps.hardened_api.main:app --reload --port 8002
 ```
 
-Karsilastirmali scan icin iki API'nin ayni anda ayakta olmasi gerekir.
+Both APIs should be running when performing a comparative scan.
 
-Kontrol endpointleri:
+### Health Endpoints
 
 ```text
 http://127.0.0.1:8001/health
 http://127.0.0.1:8002/health
 ```
 
-OpenAPI dokumanlari:
+### OpenAPI Documents
 
 ```text
 http://127.0.0.1:8001/openapi.json
 http://127.0.0.1:8002/openapi.json
 ```
 
-## Demo Kullanicilari
+---
 
-Seed verisi API baslarken otomatik olusturulur.
+## Demo Identities
 
-| Kimlik | Email | Sifre | Rol |
-|---|---|---|---|
+Demo users are automatically seeded when the APIs start.
+
+| Identity | Email | Password | Role |
+| --- | --- | --- | --- |
 | userA | `userA@example.com` | `Password123!` | `user` |
 | userB | `userB@example.com` | `Password123!` | `user` |
 | admin1 | `admin1@example.com` | `Password123!` | `admin` |
 
-Seed kayitlari sabit UUID degerleriyle olusturulur. Bu, scanner raporlarinda ayni kaynaklarin kolay takip edilmesini saglar.
+These credentials are used **only for the local intentionally vulnerable/hardened demo environment**.
 
-## Scanner Kullanimi
+The seed data uses fixed UUID values to keep object references consistent across scans and reports.
 
-Tek hedef tarama:
+---
+
+## Scanner Usage
+
+### Scan the Vulnerable API
 
 ```bash
 python -m scanner.main --config config/vulnerable.yaml
+```
+
+### Scan the Hardened API
+
+```bash
 python -m scanner.main --config config/hardened.yaml
 ```
 
-JSON rapor uretme:
+### Generate JSON Report
 
 ```bash
-python -m scanner.main --config config/vulnerable.yaml --report-format json
+python -m scanner.main \
+  --config config/vulnerable.yaml \
+  --report-format json
 ```
 
-Markdown pentest raporu uretme:
+### Generate Markdown Pentest Report
 
 ```bash
-python -m scanner.main --config config/vulnerable.yaml --report-format markdown
+python -m scanner.main \
+  --config config/vulnerable.yaml \
+  --report-format markdown
 ```
 
-JSON ve Markdown raporu birlikte uretme:
+### Generate Both Formats
 
 ```bash
-python -m scanner.main --config config/vulnerable.yaml --report-format all
+python -m scanner.main \
+  --config config/vulnerable.yaml \
+  --report-format all
 ```
 
-Iki hedefi karsilastirma:
+### Compare Vulnerable and Hardened Targets
 
 ```bash
-python -m scanner.main --compare-config config/vulnerable.yaml config/hardened.yaml
+python -m scanner.main \
+  --compare-config config/vulnerable.yaml config/hardened.yaml
 ```
 
-Beklenen demo sonucu:
+Expected demo behavior:
 
 ```text
 vulnerable: 13 findings
 hardened: 0 findings
 ```
 
-Rapor dosyalari varsayilan olarak `reports/` klasorune yazilir. Bu klasor lokal calisma ciktisi olarak tutulur ve GitHub'a gonderilmez.
+The exact number of findings depends on the current scanner configuration and demo implementation.
 
-Her rapor uretiminde `reports/manifest.json` guncellenir. Son uretilen raporlara kolay erisim icin `reports/latest.json` ve `reports/latest.md` dosyalari da olusturulur.
+---
 
-## Raporlama
+## How Authorization Testing Works
 
-Scanner iki rapor formati uretir:
+Authorization testing requires multiple identities and expected access-control rules.
 
-- JSON: Makine tarafindan okunabilir ham tarama sonucu.
-- Markdown: Insan tarafindan okunabilir pentest raporu.
+For example, a simplified BOLA test may follow this logic:
 
-Markdown rapor su bolumleri icerir:
+```text
+1. Authenticate as User A
+2. Access User A's resource
+3. Store the resource identifier
+4. Authenticate as User B
+5. Attempt to access User A's resource
+6. Evaluate the HTTP response and returned data
+7. Generate a finding if unauthorized access succeeds
+```
+
+This approach allows the scanner to evaluate actual authorization behavior rather than relying only on static endpoint definitions.
+
+---
+
+## BOLA Detection
+
+BOLA tests evaluate whether one authenticated user can access objects belonging to another user.
+
+Example:
+
+```text
+User A -> GET /orders/USER_A_ORDER_ID -> 200 OK
+User B -> GET /orders/USER_A_ORDER_ID -> 200 OK
+```
+
+If User B receives User A's protected object without proper authorization, the scanner generates a BOLA finding.
+
+---
+
+## BFLA Detection
+
+BFLA tests evaluate whether lower-privileged users can invoke privileged API functions.
+
+Example:
+
+```text
+Regular User -> POST /admin/users
+```
+
+If an endpoint intended only for administrators can be successfully accessed by a normal user, the scanner records a BFLA finding.
+
+---
+
+## Property Authorization Testing
+
+The property authorization module evaluates issues such as:
+
+- Mass Assignment
+- Excessive Data Exposure
+- Privilege Escalation
+
+Example privilege escalation attempt:
+
+```json
+{
+  "name": "User A",
+  "role": "admin"
+}
+```
+
+If an ordinary user can modify a protected property such as `role`, the scanner generates a security finding.
+
+---
+
+## Reporting
+
+AuthZ Scanner supports two report formats.
+
+### JSON
+
+Designed for automated processing and integrations.
+
+Possible future uses include:
+
+- CI/CD pipelines
+- security dashboards
+- vulnerability management systems
+- automated post-processing
+
+### Markdown
+
+Designed as a human-readable penetration testing report.
+
+The Markdown report includes:
 
 - Executive Summary
 - Scan Metadata
@@ -170,7 +384,7 @@ Markdown rapor su bolumleri icerir:
 - Detailed Findings
 - Evidence Appendix
 
-Her bulguda su bilgiler yer alir:
+Each finding can contain:
 
 - Severity
 - Vulnerability class
@@ -179,81 +393,281 @@ Her bulguda su bilgiler yer alir:
 - Impact
 - Steps to reproduce
 - Evidence summary
-- Remediation
+- Remediation guidance
 
-Raporlama katmani hassas degerleri maskeler. Ornegin `password_hash`, `password`, `token`, `api_key`, `refresh_token`, `secret`, `ssn` ve kart bilgileri gibi alanlar raporda `[REDACTED]` olarak yazilir.
+---
 
-## Demo Verisini Sifirlama
+## Sensitive Data Redaction
 
-Mutasyonlu scanner testleri demo verisini degistirebilir. Ornegin privilege escalation testi vulnerable API'de `userA` rolunu gecici olarak `admin` yapabilir veya mass assignment testleri yeni order kayitlari olusturabilir.
+The reporting layer automatically masks sensitive values.
 
-Demo verisini baslangic haline almak icin:
+Examples include:
+
+```text
+password
+password_hash
+token
+refresh_token
+api_key
+secret
+ssn
+card information
+```
+
+Sensitive values are replaced with:
+
+```text
+[REDACTED]
+```
+
+This reduces the risk of exposing credentials or sensitive application data inside generated reports.
+
+---
+
+## Report Management
+
+Generated reports are stored locally under:
+
+```text
+reports/
+```
+
+The directory is intended for local scan output and is not committed to the repository.
+
+Each reporting run updates:
+
+```text
+reports/manifest.json
+```
+
+Convenience files are also generated:
+
+```text
+reports/latest.json
+reports/latest.md
+```
+
+These provide quick access to the most recent scan results.
+
+---
+
+## Resetting Demo Data
+
+Some scanner modules intentionally perform mutation-based authorization tests.
+
+For example:
+
+- a privilege escalation test may temporarily change `userA` from `user` to `admin`
+- a mass assignment test may create or modify an object
+- authorization tests may modify application state
+
+Reset the demo environment with:
 
 ```bash
 python -m apps.reset_demo_data
 ```
 
-Beklenen cikti:
+Expected output:
 
 ```text
 Reset demo data for: vulnerable, hardened
 ```
 
-Bu komut scanner'dan bagimsizdir. Scanner sadece test yapar; demo verisini temizleme sorumlulugu demo API laboratuvari tarafinda kalir.
+The reset operation belongs to the demo API environment rather than the scanner itself.
 
-## Hata Yonetimi
+The scanner performs tests but does not automatically manage target application state outside explicitly defined test actions.
 
-Scanner yaygin calisma hatalarini traceback yerine kisa CLI mesajlariyla raporlar:
+---
 
-- Eksik config dosyasi: `Scanner error: Config file not found`
-- Gecersiz config dosyasi: `Scanner error: Config file is invalid`
-- Login hatasi: `Authentication error`
-- Kapali veya erisilemeyen API: `Connection error`
+## Error Handling
 
-Bu durumlarda scanner `2` exit code ile kapanir.
+Common runtime failures are converted into concise CLI messages instead of exposing unnecessary tracebacks.
 
-## Testler
+Examples include:
 
-Tum testleri calistirma:
+```text
+Scanner error: Config file not found
+Scanner error: Config file is invalid
+Authentication error
+Connection error
+```
+
+For these execution failures, the scanner exits with:
+
+```text
+exit code 2
+```
+
+---
+
+## Testing
+
+Run the complete test suite with:
 
 ```bash
 python -m pytest
 ```
 
-Test kapsami su alanlari icerir:
+The test suite covers:
 
-- API health ve OpenAPI kontrolleri
-- Login ve JWT davranisi
-- Order, user ve admin endpoint davranislari
-- BOLA scanner modulu
-- BFLA scanner modulu
-- Property authorization scanner modulu
-- JSON raporlama
-- Markdown raporlama
-- CLI hata yonetimi
-- Karsilastirmali scan komutu
-- Demo veri reset komutu
+- API health checks
+- OpenAPI availability
+- Login behavior
+- JWT authentication
+- Order endpoints
+- User endpoints
+- Admin endpoints
+- BOLA scanner module
+- BFLA scanner module
+- Property authorization scanner
+- JSON reporting
+- Markdown reporting
+- CLI error handling
+- Comparative scanning
+- Demo database reset behavior
 
-GitHub Actions pipeline'i her push ve pull request icin testleri otomatik calistirir.
+---
 
-## Tasinabilirlik
+## CI/CD
 
-Scanner motoru demo API'ye dogrudan bagimli olacak sekilde yazilmamistir. Baska bir REST API icin temel olarak yeni bir config dosyasi gerekir:
+The repository includes a **GitHub Actions** pipeline.
+
+Tests are automatically executed on:
+
+```text
+push
+pull_request
+```
+
+This allows scanner functionality to be continuously validated as the project evolves.
+
+The CI pipeline represents the first step toward integrating authorization security testing into a broader DevSecOps workflow.
+
+---
+
+## Portability
+
+AuthZ Scanner is intentionally designed so that the scanner engine is not tightly coupled to the included demo APIs.
+
+Testing another REST API primarily requires a new configuration file containing information such as:
 
 - target base URL
-- login endpoint'i
-- token alan adi
-- profil endpoint'i
-- test kimlikleri
-- BOLA/BFLA/property authorization test kurallari
+- authentication endpoint
+- authentication request
+- token extraction path
+- profile endpoint
+- test identities
+- BOLA rules
+- BFLA rules
+- property authorization rules
 
-Authorization kurallari is kuralina bagli oldugu icin scanner bunlari tamamen otomatik bilemez. Bu nedenle mevcut yaklasim manuel config uzerinden kontrollu test tanimlamaktir.
+Authorization logic is highly dependent on application-specific business rules.
 
-Config alanlari ve yeni API'ye uyarlama akisi icin [docs/configuration.md](docs/configuration.md) dosyasina bakilabilir. Baslangic sablonu olarak [config/example_external.yaml](config/example_external.yaml) kullanilabilir.
+For this reason, the scanner does not attempt to fully infer authorization expectations automatically.
 
-## Gelecek Gelistirmeler
+Instead, expected behavior is defined explicitly through configuration files.
 
-- OpenAPI tabanli config discovery: `/openapi.json` dokumanindan baslangic config taslagi uretme.
-- HTML rapor: Markdown raporun daha gorsel bir HTML ciktisi.
-- Severity configuration: Bulgu severity degerlerini config uzerinden yonetme.
-- Docker destegi: Iki API ve scanner icin tekrarlanabilir container tabanli calisma ortami.
+For additional details, see:
+
+```text
+docs/configuration.md
+```
+
+A starter configuration is available at:
+
+```text
+config/example_external.yaml
+```
+
+---
+
+## Example External Configuration
+
+A simplified configuration may look conceptually like this:
+
+```yaml
+target:
+  base_url: "http://localhost:8000"
+
+auth:
+  login_endpoint: "/login"
+  token_field: "access_token"
+
+identities:
+  user_a:
+    username: "userA@example.com"
+    password: "password"
+
+  user_b:
+    username: "userB@example.com"
+    password: "password"
+```
+
+Target-specific authorization rules can then be defined without changing the scanner engine.
+
+---
+
+## Security and Ethical Use
+
+AuthZ Scanner is intended for:
+
+- local security labs
+- intentionally vulnerable applications
+- systems owned by the tester
+- systems where explicit authorization for security testing has been granted
+
+Do not use the scanner against systems without permission.
+
+The included vulnerable API exists specifically to provide a controlled environment for security testing and development.
+
+---
+
+## Current Limitations
+
+The project currently has several intentional limitations:
+
+- Authorization expectations must largely be defined manually through configuration.
+- The scanner does not automatically discover complete business authorization rules.
+- OpenAPI specifications are not yet used to automatically generate scanner configuration.
+- The included vulnerability modules focus primarily on authorization-related API security issues.
+- Some mutation-based tests can modify target application state.
+- The demo environment is designed for controlled security testing rather than production deployment.
+
+---
+
+## Future Work
+
+Planned improvements include:
+
+- OpenAPI-based configuration discovery
+- Automatic generation of starter scanner configuration from `/openapi.json`
+- HTML security reports
+- Configurable severity levels
+- Docker support for the scanner and demo APIs
+- Improved CI/CD security integration
+- Additional API authorization test modules
+- More advanced evidence correlation
+- Enhanced comparison between vulnerable and remediated API versions
+
+---
+
+## Project Goals
+
+AuthZ Scanner was developed to explore the intersection of:
+
+- Backend Engineering
+- API Security
+- Application Security
+- Security Automation
+- Software Testing
+- DevSecOps
+
+The project demonstrates how authorization security tests can be represented as reusable, repeatable, and reportable automated workflows rather than only manual penetration testing steps.
+
+---
+
+## Developer
+
+**Tayfun Özgür**
+
+GitHub: [tayfunozgur13](https://github.com/tayfunozgur13)
